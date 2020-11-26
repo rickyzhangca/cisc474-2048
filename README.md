@@ -1,1 +1,1 @@
-# cisc474-2048
+# CISC474 - 2048 with Deep Q-Learning
