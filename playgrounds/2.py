@@ -175,242 +175,245 @@ final_parameters = {}
 # number of episodes
 M = 40000
 
-with tf.compat.v1.Session() as session:
-    tf.compat.v1.global_variables_initializer().run()
-    print("Initialized")
+session = tf.compat.v1.Session()
 
-    #for episode with max score
-    maximum = -1
-    episode = -1
+tf.compat.v1.global_variables_initializer().run()
+print("Initialized")
+
+#for episode with max score
+maximum = -1
+episode = -1
+
+#total_iters 
+total_iters = 1
+
+#number of back props
+back=0
+
+for ep in range(M):
+    global board
+    board = game.new_game(4)
+    game.add_two(board)
+    game.add_two(board)
     
-    #total_iters 
-    total_iters = 1
+    #whether episode finished or not
+    finish = 'not over'
     
-    #number of back props
-    back=0
+    #total_score of this episode
+    total_score = 0
     
-    for ep in range(M):
-        global board
-        board = game.new_game(4)
-        game.add_two(board)
-        game.add_two(board)
+    #iters per episode
+    local_iters = 1
+    
+    while(finish=='not over'):
+        prev_board = deepcopy(board)
         
-        #whether episode finished or not
-        finish = 'not over'
+        #get the required move for this state
+        state = deepcopy(board)
+        state = game.change_values(state)
+        state = np.array(state,dtype = np.float32).reshape(1,4,4,16)
+        feed_dict = {single_dataset:state}
+        control_scores = session.run(single_output,feed_dict=feed_dict)
         
-        #total_score of this episode
-        total_score = 0
+        #find the move with max Q value
+        control_buttons = np.flip(np.argsort(control_scores),axis=1)
         
-        #iters per episode
-        local_iters = 1
+        #copy the Q-values as labels
+        labels = deepcopy(control_scores[0])
         
-        while(finish=='not over'):
-            prev_board = deepcopy(board)
-            
-            #get the required move for this state
-            state = deepcopy(board)
-            state = game.change_values(state)
-            state = np.array(state,dtype = np.float32).reshape(1,4,4,16)
-            feed_dict = {single_dataset:state}
-            control_scores = session.run(single_output,feed_dict=feed_dict)
-            
-            #find the move with max Q value
-            control_buttons = np.flip(np.argsort(control_scores),axis=1)
-            
-            #copy the Q-values as labels
-            labels = deepcopy(control_scores[0])
-            
-            #generate random number for epsilon greedy approach
-            num = random.uniform(0,1)
-            
-            #store prev max
-            prev_max = np.max(prev_board)
-            
-            #num is less epsilon generate random move
-            if(num<epsilon):
-                #find legal moves
-                legal_moves = list()
-                for i in range(4):
-                    temp_board = deepcopy(prev_board)
-                    temp_board,_,_ = game.controls[i](temp_board)
-                    if(np.array_equal(temp_board,prev_board)):
-                        continue
-                    else:
-                        legal_moves.append(i)
-                if(len(legal_moves)==0):
-                    finish = 'lose'
+        #generate random number for epsilon greedy approach
+        num = random.uniform(0,1)
+        
+        #store prev max
+        prev_max = np.max(prev_board)
+        
+        #num is less epsilon generate random move
+        if(num<epsilon):
+            #find legal moves
+            legal_moves = list()
+            for i in range(4):
+                temp_board = deepcopy(prev_board)
+                temp_board,_,_ = game.controls[i](temp_board)
+                if(np.array_equal(temp_board,prev_board)):
                     continue
+                else:
+                    legal_moves.append(i)
+            if(len(legal_moves)==0):
+                finish = 'lose'
+                continue
+            
+            #generate random move.
+            con = random.sample(legal_moves,1)[0]
+            
+            #apply the move
+            temp_state = deepcopy(prev_board)
+            temp_state,_,score = game.controls[con](temp_state)
+            total_score += score
+            finish = game.game_state(temp_state)
+            
+            #get number of merges
+            empty1 = game.findemptyCell(prev_board)
+            empty2 = game.findemptyCell(temp_state)
+            
+            if(finish=='not over'):
+                temp_state = game.add_two(temp_state)
+
+            board = deepcopy(temp_state)
+
+            #get next max after applying the move
+            next_max = np.max(temp_state)
+            
+            #reward math.log(next_max,2)*0.1 if next_max is higher than prev max
+            labels[con] = (math.log(next_max,2))*0.1
+            
+            if(next_max==prev_max):
+                labels[con] = 0
+            
+            #reward is also the number of merges
+            labels[con] += (empty2-empty1)
+            
+            #get the next state max Q-value
+            temp_state = game.change_values(temp_state)
+            temp_state = np.array(temp_state,dtype = np.float32).reshape(1,4,4,16)
+            feed_dict = {single_dataset:temp_state}
+            temp_scores = session.run(single_output,feed_dict=feed_dict)
                 
-                #generate random move.
-                con = random.sample(legal_moves,1)[0]
+            max_qvalue = np.max(temp_scores)
+            
+            #final labels add gamma*max_qvalue
+            labels[con] = (labels[con] + gamma*max_qvalue)
+        
+        #generate the the max predicted move
+        else:
+            for con in control_buttons[0]:
+                prev_state = deepcopy(prev_board)
                 
-                #apply the move
-                temp_state = deepcopy(prev_board)
-                temp_state,_,score = game.controls[con](temp_state)
-                total_score += score
-                finish = game.game_state(temp_state)
+                #apply the LEGAl Move with max q_value
+                temp_state,_,score = game.controls[con](prev_state)
                 
+                #if illegal move label = 0
+                if(np.array_equal(prev_board,temp_state)):
+                    labels[con] = 0
+                    continue
+                    
                 #get number of merges
                 empty1 = game.findemptyCell(prev_board)
                 empty2 = game.findemptyCell(temp_state)
+
                 
-                if(finish=='not over'):
-                    temp_state = game.add_two(temp_state)
-
+                temp_state = game.add_two(temp_state)
                 board = deepcopy(temp_state)
+                total_score += score
 
-                #get next max after applying the move
                 next_max = np.max(temp_state)
                 
-                #reward math.log(next_max,2)*0.1 if next_max is higher than prev max
+                #reward
                 labels[con] = (math.log(next_max,2))*0.1
-                
                 if(next_max==prev_max):
                     labels[con] = 0
                 
-                #reward is also the number of merges
                 labels[con] += (empty2-empty1)
-                
-                #get the next state max Q-value
+
+                #get next max qvalue
                 temp_state = game.change_values(temp_state)
                 temp_state = np.array(temp_state,dtype = np.float32).reshape(1,4,4,16)
                 feed_dict = {single_dataset:temp_state}
                 temp_scores = session.run(single_output,feed_dict=feed_dict)
-                    
+
                 max_qvalue = np.max(temp_scores)
-                
-                #final labels add gamma*max_qvalue
+
+                #final labels
                 labels[con] = (labels[con] + gamma*max_qvalue)
+                break
+                
+            if(np.array_equal(prev_board,board)):
+                finish = 'lose'
+        
+        #decrease the epsilon value
+        if((ep>10000) or (epsilon>0.1 and total_iters%2500==0)):
+            epsilon = epsilon/1.005
             
-            #generate the the max predicted move
-            else:
-                for con in control_buttons[0]:
-                    prev_state = deepcopy(prev_board)
-                    
-                    #apply the LEGAl Move with max q_value
-                    temp_state,_,score = game.controls[con](prev_state)
-                    
-                    #if illegal move label = 0
-                    if(np.array_equal(prev_board,temp_state)):
-                        labels[con] = 0
-                        continue
-                        
-                    #get number of merges
-                    empty1 = game.findemptyCell(prev_board)
-                    empty2 = game.findemptyCell(temp_state)
-
-                    
-                    temp_state = game.add_two(temp_state)
-                    board = deepcopy(temp_state)
-                    total_score += score
-
-                    next_max = np.max(temp_state)
-                    
-                    #reward
-                    labels[con] = (math.log(next_max,2))*0.1
-                    if(next_max==prev_max):
-                        labels[con] = 0
-                    
-                    labels[con] += (empty2-empty1)
-
-                    #get next max qvalue
-                    temp_state = game.change_values(temp_state)
-                    temp_state = np.array(temp_state,dtype = np.float32).reshape(1,4,4,16)
-                    feed_dict = {single_dataset:temp_state}
-                    temp_scores = session.run(single_output,feed_dict=feed_dict)
-
-                    max_qvalue = np.max(temp_scores)
-
-                    #final labels
-                    labels[con] = (labels[con] + gamma*max_qvalue)
+        
+        #change the matrix values and store them in memory
+        prev_state = deepcopy(prev_board)
+        prev_state = game.change_values(prev_state)
+        prev_state = np.array(prev_state,dtype=np.float32).reshape(1,4,4,16)
+        replay_labels.append(labels)
+        replay_memory.append(prev_state)
+        
+        
+        #back-propagation
+        if(len(replay_memory)>=mem_capacity):
+            back_loss = 0
+            batch_num = 0
+            z = list(zip(replay_memory,replay_labels))
+            np.random.shuffle(z)
+            np.random.shuffle(z)
+            replay_memory,replay_labels = zip(*z)
+            
+            for i in range(0,len(replay_memory),batch_size):
+                if(i + batch_size>len(replay_memory)):
                     break
                     
-                if(np.array_equal(prev_board,board)):
-                    finish = 'lose'
+                batch_data = deepcopy(replay_memory[i:i+batch_size])
+                batch_labels = deepcopy(replay_labels[i:i+batch_size])
+                
+                batch_data = np.array(batch_data,dtype=np.float32).reshape(batch_size,4,4,16)
+                batch_labels = np.array(batch_labels,dtype=np.float32).reshape(batch_size,output_units)
             
-            #decrease the epsilon value
-            if((ep>10000) or (epsilon>0.1 and total_iters%2500==0)):
-                epsilon = epsilon/1.005
+                feed_dict = {tf_batch_dataset: batch_data, tf_batch_labels: batch_labels}
+                _,l = session.run([optimizer,loss],feed_dict=feed_dict)
+                back_loss += l 
                 
-           
-            #change the matrix values and store them in memory
-            prev_state = deepcopy(prev_board)
-            prev_state = game.change_values(prev_state)
-            prev_state = np.array(prev_state,dtype=np.float32).reshape(1,4,4,16)
-            replay_labels.append(labels)
-            replay_memory.append(prev_state)
+                # print("Mini-Batch - {} Back-Prop : {}, Loss : {}".format(batch_num,back,l))
+                batch_num +=1
+            back_loss /= batch_num
+            J.append(back_loss)
             
+            #store the parameters in a dictionary
+            final_parameters['conv1_layer1_weights'] = session.run(conv1_layer1_weights)
+            final_parameters['conv1_layer2_weights'] = session.run(conv1_layer2_weights)
+            final_parameters['conv2_layer1_weights'] = session.run(conv2_layer1_weights)
+            final_parameters['conv2_layer2_weights'] = session.run(conv2_layer2_weights)
+            #final_parameters['conv1_layer1_biases'] = session.run(conv1_layer1_biases)
+            #final_parameters['conv1_layer2_biases'] = session.run(conv1_layer2_biases)
+            #final_parameters['conv2_layer1_biases'] = session.run(conv2_layer1_biases)
+            #final_parameters['conv2_layer2_biases'] = session.run(conv2_layer2_biases)
+            final_parameters['fc_layer1_weights'] = session.run(fc_layer1_weights)
+            final_parameters['fc_layer2_weights'] = session.run(fc_layer2_weights)
+            final_parameters['fc_layer1_biases'] = session.run(fc_layer1_biases)
+            final_parameters['fc_layer2_biases'] = session.run(fc_layer2_biases)
             
-            #back-propagation
-            if(len(replay_memory)>=mem_capacity):
-                back_loss = 0
-                batch_num = 0
-                z = list(zip(replay_memory,replay_labels))
-                np.random.shuffle(z)
-                np.random.shuffle(z)
-                replay_memory,replay_labels = zip(*z)
-                
-                for i in range(0,len(replay_memory),batch_size):
-                    if(i + batch_size>len(replay_memory)):
-                        break
-                        
-                    batch_data = deepcopy(replay_memory[i:i+batch_size])
-                    batch_labels = deepcopy(replay_labels[i:i+batch_size])
-                    
-                    batch_data = np.array(batch_data,dtype=np.float32).reshape(batch_size,4,4,16)
-                    batch_labels = np.array(batch_labels,dtype=np.float32).reshape(batch_size,output_units)
-                
-                    feed_dict = {tf_batch_dataset: batch_data, tf_batch_labels: batch_labels}
-                    _,l = session.run([optimizer,loss],feed_dict=feed_dict)
-                    back_loss += l 
-                    
-                    # print("Mini-Batch - {} Back-Prop : {}, Loss : {}".format(batch_num,back,l))
-                    batch_num +=1
-                back_loss /= batch_num
-                J.append(back_loss)
-                
-                #store the parameters in a dictionary
-                final_parameters['conv1_layer1_weights'] = session.run(conv1_layer1_weights)
-                final_parameters['conv1_layer2_weights'] = session.run(conv1_layer2_weights)
-                final_parameters['conv2_layer1_weights'] = session.run(conv2_layer1_weights)
-                final_parameters['conv2_layer2_weights'] = session.run(conv2_layer2_weights)
-                #final_parameters['conv1_layer1_biases'] = session.run(conv1_layer1_biases)
-                #final_parameters['conv1_layer2_biases'] = session.run(conv1_layer2_biases)
-                #final_parameters['conv2_layer1_biases'] = session.run(conv2_layer1_biases)
-                #final_parameters['conv2_layer2_biases'] = session.run(conv2_layer2_biases)
-                final_parameters['fc_layer1_weights'] = session.run(fc_layer1_weights)
-                final_parameters['fc_layer2_weights'] = session.run(fc_layer2_weights)
-                final_parameters['fc_layer1_biases'] = session.run(fc_layer1_biases)
-                final_parameters['fc_layer2_biases'] = session.run(fc_layer2_biases)
-                
-                #number of back-props
-                back+=1
-                
-                #make new memory 
-                replay_memory = list()
-                replay_labels = list()
-                
-            '''
-            if(local_iters%400==0):
-                print("Episode : {}, Score : {}, Iters : {}, Finish : {}".format(ep,total_score,local_iters,finish))
-            '''
-            local_iters += 1
-            total_iters += 1
+            #number of back-props
+            back+=1
             
-        scores.append(total_score)
-        # print("Episode {} finished with score {}, result : {} board : {}, epsilon  : {}, learning rate : {} ".format(ep,total_score,finish,board,epsilon,session.run(learning_rate)))
+            #make new memory 
+            replay_memory = list()
+            replay_labels = list()
+            
+        '''
+        if(local_iters%400==0):
+            print("Episode : {}, Score : {}, Iters : {}, Finish : {}".format(ep,total_score,local_iters,finish))
+        '''
+        local_iters += 1
+        total_iters += 1
+        
+    scores.append(total_score)
+    # print("Episode {} finished with score {}, result : {} board : {}, epsilon  : {}, learning rate : {} ".format(ep,total_score,finish,board,epsilon,session.run(learning_rate)))
 
-        if((ep+1)%100==0):
-            print("Episode {} finished".format(ep))
+    if((ep+1)%100==0):
+        print("Episode {} finished".format(ep))
 
-        if((ep+1)%500==0):
-            print("Maximum Score : {} ,Episode : {}".format(maximum,episode))    
-            print("Loss : {}".format(J[len(J)-1]))
-            
-        if(maximum<total_score):
-            maximum = total_score
-            episode = ep
-    print("Maximum Score : {} ,Episode : {}".format(maximum,episode))
+    if((ep+1)%500==0):
+        print("Maximum Score : {} ,Episode : {}".format(maximum,episode))    
+        print("Loss : {}".format(J[len(J)-1]))
+        
+    if(maximum<total_score):
+        maximum = total_score
+        episode = ep
+print("Maximum Score : {} ,Episode : {}".format(maximum,episode))
+
+session.close()
 
 
 ################################################################################################################
