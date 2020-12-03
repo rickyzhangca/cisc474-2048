@@ -6,9 +6,33 @@ import math
 import matplotlib.pyplot as plt
 import game
 
-tf.compat.v1.disable_eager_execution()
-print(tf.test.is_built_with_cuda()) 
-print(tf.config.list_physical_devices('GPU'))
+
+'''
+setup system
+'''
+def setup():
+    # disable tf2's eager execution to use tf1 style pipeline
+    tf.compat.v1.disable_eager_execution()
+    # check cuda info
+    print(tf.test.is_built_with_cuda()) 
+    print(tf.config.list_physical_devices('GPU'))
+
+'''
+save a given list to txt or csv file using w+ policy
+'''
+def save(path, name, lis, mode):
+    file = open(path + name + mode,'w+')
+    if mode == 'txt':  
+        for i in range(len(list)):
+            file.write(str(list[i])+"\n")     
+        file.close()
+    elif mode == 'csv':
+        file.write('Sno,Weight\n') ###
+        for i in range(lis.shape[0]):
+            file.write(str(i) +',' +str(flatten[i][0])+'\n') 
+    file.close()
+    print(path + name + mode + " is written")
+
 
 ###
 
@@ -388,29 +412,17 @@ with tf.compat.v1.Session() as session:
             episode = ep
     print("Maximum Score : {} ,Episode : {}".format(maximum,episode))
 
+
+################################################################################################################
+
 path = r'./trained'
 
-file = open(path +'/scores.csv','w+')
-for i in range(len(scores)):
-    file.write(str(scores[i])+"\n")
-file.close()
-
-file = open(path +'/loss.csv','w+')
-for i in range(len(J)):
-    file.write(str(J[i])+"\n")     
-file.close()
+save(path=path, name='/scores', lis=scores, mode='txt')
+save(path=path, name='/loss', lis=loss, mode='txt')
 
 weights = ['conv1_layer1_weights','conv1_layer2_weights','conv2_layer1_weights','conv2_layer2_weights','fc_layer1_weights','fc_layer1_biases','fc_layer2_weights','fc_layer2_biases']
 for w in weights:
     flatten = final_parameters[w].reshape(-1,1)
-    file = open(path + '/' + w +'.csv','w+')
-    file.write('Sno,Weight\n')
-    for i in range(flatten.shape[0]):
-        file.write(str(i) +',' +str(flatten[i][0])+'\n') 
-    file.close()
-    print(w + " written!")
-
-
-################################################################################################################
+    save(path=path, name='/'+w, lis=flatten, mode='csv')
 
 ################################################################################################################
