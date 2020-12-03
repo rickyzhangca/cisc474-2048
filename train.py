@@ -375,7 +375,9 @@ with tf.compat.v1.Session() as session:
             
         scores.append(total_score)
         # print("Episode {} finished with score {}, result : {} board : {}, epsilon  : {}, learning rate : {} ".format(ep,total_score,finish,board,epsilon,session.run(learning_rate)))
-        print("Episode {} finished".format(ep)
+
+        if((ep+1)%100==0):
+            print("Episode {} finished".format(ep))
 
         if((ep+1)%500==0):
             print("Maximum Score : {} ,Episode : {}".format(maximum,episode))    
