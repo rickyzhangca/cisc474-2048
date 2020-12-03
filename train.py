@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import game
 
 tf.compat.v1.disable_eager_execution()
+print(tf.test.is_built_with_cuda()) 
+print(tf.config.list_physical_devices('GPU'))
 
 ###
 
@@ -147,7 +149,7 @@ scores = []
 final_parameters = {}
 
 # number of episodes
-M = 123
+M = 400001
 
 with tf.compat.v1.Session() as session:
     tf.compat.v1.global_variables_initializer().run()
@@ -338,7 +340,7 @@ with tf.compat.v1.Session() as session:
                     _,l = session.run([optimizer,loss],feed_dict=feed_dict)
                     back_loss += l 
                     
-                    print("Mini-Batch - {} Back-Prop : {}, Loss : {}".format(batch_num,back,l))
+                    # print("Mini-Batch - {} Back-Prop : {}, Loss : {}".format(batch_num,back,l))
                     batch_num +=1
                 back_loss /= batch_num
                 J.append(back_loss)
@@ -364,21 +366,20 @@ with tf.compat.v1.Session() as session:
                 replay_memory = list()
                 replay_labels = list()
                 
-            
+            '''
             if(local_iters%400==0):
                 print("Episode : {}, Score : {}, Iters : {}, Finish : {}".format(ep,total_score,local_iters,finish))
-            
+            '''
             local_iters += 1
             total_iters += 1
             
         scores.append(total_score)
-        print("Episode {} finished with score {}, result : {} board : {}, epsilon  : {}, learning rate : {} ".format(ep,total_score,finish,board,epsilon,session.run(learning_rate)))
-        print()
-        
-        if((ep+1)%1000==0):
+        # print("Episode {} finished with score {}, result : {} board : {}, epsilon  : {}, learning rate : {} ".format(ep,total_score,finish,board,epsilon,session.run(learning_rate)))
+        print("Episode {} finished".format(ep)
+
+        if((ep+1)%500==0):
             print("Maximum Score : {} ,Episode : {}".format(maximum,episode))    
             print("Loss : {}".format(J[len(J)-1]))
-            print()
             
         if(maximum<total_score):
             maximum = total_score
@@ -386,6 +387,17 @@ with tf.compat.v1.Session() as session:
     print("Maximum Score : {} ,Episode : {}".format(maximum,episode))
 
 path = r'./trained'
+
+file = open(path +'/scores.csv','w+')
+for i in range(len(scores)):
+    file.write(str(scores[i])+"\n")
+file.close()
+
+file = open(path +'/loss.csv','w+')
+for i in range(len(J)):
+    file.write(str(J[i])+"\n")     
+file.close()
+
 weights = ['conv1_layer1_weights','conv1_layer2_weights','conv2_layer1_weights','conv2_layer2_weights','fc_layer1_weights','fc_layer1_biases','fc_layer2_weights','fc_layer2_biases']
 for w in weights:
     flatten = final_parameters[w].reshape(-1,1)
