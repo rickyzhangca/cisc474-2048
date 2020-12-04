@@ -5,10 +5,43 @@ import random
 import math
 import matplotlib.pyplot as plt
 import game
+import time
 
-tf.compat.v1.disable_eager_execution()
-print(tf.test.is_built_with_cuda()) 
-print(tf.config.list_physical_devices('GPU'))
+################################################################################################################
+
+'''
+setup tensorflow
+'''
+def setup():
+    # python -m venv --system-site-packages .\venv
+    # Set-ExecutionPolicy Unrestricted -Scope Process
+    # .\venv\Scripts\activate
+
+    # disable tf2's eager execution to use tf1 style pipeline
+    tf.compat.v1.disable_eager_execution()
+    # check cuda info
+    print(tf.test.is_built_with_cuda()) 
+    print(tf.config.list_physical_devices('GPU'))
+    
+setup()
+
+'''
+save a given list to txt or csv file using w+ policy
+'''
+def save(path, name, lis, mode):
+    file = open(path + name + mode,'w+')
+    if mode == '.txt':  
+        for i in range(len(lis)):
+            file.write(str(lis[i])+"\n")     
+        file.close()
+    elif mode == '.csv':
+        file.write('Sno,Weight\n') ###
+        for i in range(lis.shape[0]):
+            file.write(str(i) + ',' + str(lis[i][0])+'\n') 
+    file.close()
+    print(path + name + mode + " is written")
+
+################################################################################################################
 
 ###
 
@@ -140,7 +173,7 @@ learning_rate = tf.compat.v1.train.exponential_decay(float(start_learning_rate),
 optimizer = tf.compat.v1.train.RMSPropOptimizer(learning_rate).minimize(loss, global_step=global_step)
 
 # loss
-J = []
+losses = []
 
 # scores
 scores = []
@@ -149,23 +182,25 @@ scores = []
 final_parameters = {}
 
 # number of episodes
-M = 40000
+M = 20000
 
 with tf.compat.v1.Session() as session:
+
     tf.compat.v1.global_variables_initializer().run()
     print("Initialized")
 
     #for episode with max score
     maximum = -1
     episode = -1
-    
+
     #total_iters 
     total_iters = 1
-    
+
     #number of back props
     back=0
-    
+
     for ep in range(M):
+        start_time = time.time()
         global board
         board = game.new_game(4)
         game.add_two(board)
@@ -308,7 +343,7 @@ with tf.compat.v1.Session() as session:
             if((ep>10000) or (epsilon>0.1 and total_iters%2500==0)):
                 epsilon = epsilon/1.005
                 
-           
+            
             #change the matrix values and store them in memory
             prev_state = deepcopy(prev_board)
             prev_state = game.change_values(prev_state)
@@ -343,7 +378,7 @@ with tf.compat.v1.Session() as session:
                     # print("Mini-Batch - {} Back-Prop : {}, Loss : {}".format(batch_num,back,l))
                     batch_num +=1
                 back_loss /= batch_num
-                J.append(back_loss)
+                losses.append(back_loss)
                 
                 #store the parameters in a dictionary
                 final_parameters['conv1_layer1_weights'] = session.run(conv1_layer1_weights)
@@ -375,42 +410,30 @@ with tf.compat.v1.Session() as session:
             
         scores.append(total_score)
         # print("Episode {} finished with score {}, result : {} board : {}, epsilon  : {}, learning rate : {} ".format(ep,total_score,finish,board,epsilon,session.run(learning_rate)))
-
-        if((ep+1)%100==0):
-            print("Episode {} finished".format(ep))
-
-        if((ep+1)%500==0):
-            print("Maximum Score : {} ,Episode : {}".format(maximum,episode))    
-            print("Loss : {}".format(J[len(J)-1]))
-            
-        if(maximum<total_score):
+          
+        if(maximum < total_score):
             maximum = total_score
             episode = ep
-    print("Maximum Score : {} ,Episode : {}".format(maximum,episode))
-
-path = r'./trained'
-
-file = open(path +'/scores.csv','w+')
-for i in range(len(scores)):
-    file.write(str(scores[i])+"\n")
-file.close()
-
-file = open(path +'/loss.csv','w+')
-for i in range(len(J)):
-    file.write(str(J[i])+"\n")     
-file.close()
-
-weights = ['conv1_layer1_weights','conv1_layer2_weights','conv2_layer1_weights','conv2_layer2_weights','fc_layer1_weights','fc_layer1_biases','fc_layer2_weights','fc_layer2_biases']
-for w in weights:
-    flatten = final_parameters[w].reshape(-1,1)
-    file = open(path + '/' + w +'.csv','w+')
-    file.write('Sno,Weight\n')
-    for i in range(flatten.shape[0]):
-        file.write(str(i) +',' +str(flatten[i][0])+'\n') 
-    file.close()
-    print(w + " written!")
+        if((ep+1)%100==0):
+            current_time = time.time()
+            elapsed_time = current_time - start_time
+            print("Episode {}-{} finished in {} seconds. Max score: {}. Loss: {}".format(ep-99, ep, elapsed_time, maximum, losses[len(losses)-1]))  
 
 
 ################################################################################################################
+
+'''
+save the records and outcomes
+'''
+
+# save scores and losses
+save(path='./trained', name='/scores', lis=scores, mode='.txt')
+save(path='./trained', name='/losses', lis=losses, mode='.txt')
+
+# save weights
+weights = ['conv1_layer1_weights','conv1_layer2_weights','conv2_layer1_weights','conv2_layer2_weights','fc_layer1_weights','fc_layer1_biases','fc_layer2_weights','fc_layer2_biases']
+for w in weights:
+    flatten = final_parameters[w].reshape(-1,1)
+    save(path='./trained', name='/' + w, lis=flatten, mode='.csv')
 
 ################################################################################################################

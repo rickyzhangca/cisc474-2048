@@ -78,16 +78,16 @@ class dql():
         self.tf_batch_labels  = tf.compat.v1.placeholder(tf.float32,shape=(self.batch_size,self.output_units))
         self.single_dataset   = tf.compat.v1.placeholder(tf.float32,shape=(1,4,4,16))
 
-        #CONV LAYERS
-        #conv layer1 weights
+        # CONV LAYERS
+        # conv layer1 weights
         self.conv1_layer1_weights = tf.Variable(tf.random.truncated_normal([1,2,self.input_units,depth1],mean=0,stddev=0.01))
         self.conv2_layer1_weights = tf.Variable(tf.random.truncated_normal([2,1,self.input_units,depth1],mean=0,stddev=0.01))
 
-        #conv layer2 weights
+        # conv layer2 weights
         self.conv1_layer2_weights = tf.Variable(tf.random.truncated_normal([1,2,self.depth1,self.depth2],mean=0,stddev=0.01))
         self.conv2_layer2_weights = tf.Variable(tf.random.truncated_normal([2,1,self.depth1,self.depth2],mean=0,stddev=0.01))
 
-        #FUllY CONNECTED LAYERS
+        # FUllY CONNECTED LAYERS
         self.expand_size = 2*4*self.depth2*2 + 3*3*self.depth2*2 + 4*3*self.depth1*2
         self.fc_layer1_weights = tf.Variable(tf.random.truncated_normal([self.expand_size,self.hidden_units],mean=0,stddev=0.01))
         self.fc_layer1_biases = tf.Variable(tf.random.truncated_normal([1,self.hidden_units],mean=0,stddev=0.01))
@@ -106,7 +106,6 @@ class dql():
         # layer2
         conv11 = tf.nn.conv2d(relu1,self.conv1_layer2_weights,[1,1,1,1],padding='VALID') 
         conv12 = tf.nn.conv2d(relu1,self.conv2_layer2_weights,[1,1,1,1],padding='VALID') 
-
         conv21 = tf.nn.conv2d(relu2,self.conv1_layer2_weights,[1,1,1,1],padding='VALID') 
         conv22 = tf.nn.conv2d(relu2,self.conv2_layer2_weights,[1,1,1,1],padding='VALID') 
 
@@ -119,7 +118,6 @@ class dql():
         # get shapes of all activations
         shape1 = relu1.get_shape().as_list()
         shape2 = relu2.get_shape().as_list()
-        
         shape11 = relu11.get_shape().as_list()
         shape12 = relu12.get_shape().as_list()
         shape21 = relu21.get_shape().as_list()
@@ -128,7 +126,6 @@ class dql():
         # expansion
         hidden1 = tf.reshape(relu1,[shape1[0],shape1[1]*shape1[2]*shape1[3]])
         hidden2 = tf.reshape(relu2,[shape2[0],shape2[1]*shape2[2]*shape2[3]])
-        
         hidden11 = tf.reshape(relu11,[shape11[0],shape11[1]*shape11[2]*shape11[3]])
         hidden12 = tf.reshape(relu12,[shape12[0],shape12[1]*shape12[2]*shape12[3]])
         hidden21 = tf.reshape(relu21,[shape21[0],shape21[1]*shape21[2]*shape21[3]])
@@ -147,10 +144,36 @@ class dql():
         # return output
         return output
 
-    def train(self, episodes=123, max_replay=5000):
+    def find_legal_moves(self, board):
+        legal_moves = list()
+        for i in range(4):
+            next_board = deepcopy(board)
+            next_board,_,_ = game.controls[i](next_board)
+            if not np.array_equal(next_board,board):
+                legal_moves.append(i)
+        if (len(legal_moves) == 0):
+            return 'lose',legal_moves
+        return 'not over',legal_moves
+
+    def make_random_move(self, next_board, legal_moves):
+        move = random.sample(legal_moves,1)[0]
+        next_board,_,score = game.controls[move](next_board)
+        done = game.game_state(next_board)
+        return done, move, next_board, score
+    
+    def check_merges(self, current_board, next_board):
+        return game.findemptyCell(next_board) - game.findemptyCell(current_board)
+
+    def update_label(self, labels, prev_max, next_max, merges, move):
+        labels[move] = (math.log(next_max,2))*0.1
+        if (next_max == prev_max): labels[move] = 0
+        labels[move] += merges
+        return labels
+                        
+    def train(self, episodes=123, max_replay=2000):
         scores = []
         losses = []
-        final_parameters = {}
+        outcomes = {}
 
         # to store states and lables of the game for training states
         replay_memory = list()
@@ -186,11 +209,8 @@ class dql():
             # iterations 
             iterations = 1
 
-            # number of back props
-            back=0
-
             start_time = time.time()
-            for ep in range(episodes):
+            for e in range(episodes):
                 board = game.new_game(4)
                 game.add_two(board)
                 game.add_two(board)
@@ -202,13 +222,13 @@ class dql():
                 total_score = 0
                 
                 while(done=='not over'):
-                    prev_board = deepcopy(board)
+                    current_board = deepcopy(board)
                     
                     # get the required move for this state
-                    state = deepcopy(board)
-                    state = game.change_values(state)
-                    state = np.array(state,dtype = np.float32).reshape(1,4,4,16)
-                    feed_dict = {self.single_dataset:state}
+                    current_state = deepcopy(board)
+                    current_state = game.change_values(current_state)
+                    current_state = np.array(current_state,dtype = np.float32).reshape(1,4,4,16)
+                    feed_dict = {self.single_dataset:current_state}
                     control_scores = session.run(single_output,feed_dict=feed_dict)
                     
                     # find the move with max Q value
@@ -216,129 +236,92 @@ class dql():
                     
                     # copy the Q-values as labels
                     labels = deepcopy(control_scores[0])
-                    
-                    # generate random number for epsilon greedy approach
-                    num = random.uniform(0,1)
-                    
+
                     # store prev max
-                    prev_max = np.max(prev_board)
-                    
+                    prev_max = np.max(current_board)
+
                     # num is less epsilon generate random move
-                    if(num<self.epsilon):
-                        #find legal moves
-                        legal_moves = list()
-                        for i in range(4):
-                            temp_board = deepcopy(prev_board)
-                            temp_board,_,_ = game.controls[i](temp_board)
-                            if(np.array_equal(temp_board,prev_board)):
-                                continue
-                            else:
-                                legal_moves.append(i)
-                        if(len(legal_moves)==0):
-                            done = 'lose'
-                            continue
+                    if(random.uniform(0,1) < self.epsilon):
+                        # find legal moves
+                        done, legal_moves = self.find_legal_moves(current_board)
+                        if done == 'lose': continue
                         
-                        # generate random move.
-                        con = random.sample(legal_moves,1)[0]
-                        
-                        # apply the move
-                        temp_state = deepcopy(prev_board)
-                        temp_state,_,score = game.controls[con](temp_state)
+                        # apply a random move
+                        next_board = deepcopy(current_board)
+                        done, move, next_board, score = self.make_random_move(next_board, legal_moves)
                         total_score += score
-                        done = game.game_state(temp_state)
-                        
-                        # get number of merges
-                        empty1 = game.findemptyCell(prev_board)
-                        empty2 = game.findemptyCell(temp_state)
-                        
-                        if(done=='not over'):
-                            temp_state = game.add_two(temp_state)
+                        merges = self.check_merges(current_board, next_board)
 
-                        board = deepcopy(temp_state)
+                        if done == 'not over':
+                            next_board = game.add_two(next_board)
 
-                        # get next max after applying the move
-                        next_max = np.max(temp_state)
+                        board = deepcopy(next_board)
                         
-                        # reward math.log(next_max,2)*0.1 if next_max is higher than prev max
-                        labels[con] = (math.log(next_max,2))*0.1
-                        
-                        if(next_max==prev_max):
-                            labels[con] = 0
-                        
-                        #reward is also the number of merges
-                        labels[con] += (empty2-empty1)
-                        
-                        #get the next state max Q-value
-                        temp_state = game.change_values(temp_state)
-                        temp_state = np.array(temp_state,dtype = np.float32).reshape(1,4,4,16)
-                        feed_dict = {self.single_dataset:temp_state}
+                        # collect rewards
+                        next_max = np.max(next_board)
+                        labels = self.update_label(labels, prev_max, next_max, merges, move)
+
+                        # get the next state max Q-value
+                        next_board = game.change_values(next_board)
+                        next_board = np.array(next_board,dtype = np.float32).reshape(1,4,4,16)
+                        feed_dict = {self.single_dataset:next_board}
                         temp_scores = session.run(single_output,feed_dict=feed_dict)
                             
                         max_qvalue = np.max(temp_scores)
                         
                         #final labels add gamma*max_qvalue
-                        labels[con] = (labels[con] + self.gamma*max_qvalue)
+                        labels[move] = (labels[move] + self.gamma*max_qvalue)
                     
-                    #generate the the max predicted move
+                    # generate the the max predicted move
                     else:
                         for con in control_buttons[0]:
-                            prev_state = deepcopy(prev_board)
+                            prev_state = deepcopy(current_board)
                             
-                            #apply the LEGAl Move with max q_value
-                            temp_state,_,score = game.controls[con](prev_state)
+                            # apply the LEGAl Move with max q_value
+                            next_board,_,score = game.controls[con](prev_state)
                             
                             #if illegal move label = 0
-                            if(np.array_equal(prev_board,temp_state)):
+                            if(np.array_equal(current_board,next_board)):
                                 labels[con] = 0
                                 continue
                                 
-                            #get number of merges
-                            empty1 = game.findemptyCell(prev_board)
-                            empty2 = game.findemptyCell(temp_state)
-
-                            
-                            temp_state = game.add_two(temp_state)
-                            board = deepcopy(temp_state)
+                            merges = self.check_merges(current_board, next_board)
+                   
+                            next_board = game.add_two(next_board)
+                            board = deepcopy(next_board)
                             total_score += score
-
-                            next_max = np.max(temp_state)
                             
-                            #reward
-                            labels[con] = (math.log(next_max,2))*0.1
-                            if(next_max==prev_max):
-                                labels[con] = 0
-                            
-                            labels[con] += (empty2-empty1)
+                            # collect rewards
+                            next_max = np.max(next_board)
+                            labels = self.update_label(labels, prev_max, next_max, merges, con)
 
-                            #get next max qvalue
-                            temp_state = game.change_values(temp_state)
-                            temp_state = np.array(temp_state,dtype = np.float32).reshape(1,4,4,16)
-                            feed_dict = {self.single_dataset:temp_state}
+                            # get next max q value
+                            next_board = game.change_values(next_board)
+                            next_board = np.array(next_board,dtype = np.float32).reshape(1,4,4,16)
+                            feed_dict = {self.single_dataset:next_board}
                             temp_scores = session.run(single_output,feed_dict=feed_dict)
 
                             max_qvalue = np.max(temp_scores)
 
-                            #final labels
+                            # final labels
                             labels[con] = (labels[con] + self.gamma*max_qvalue)
                             break
                             
-                        if(np.array_equal(prev_board,board)):
+                        if (np.array_equal(current_board,board)):
                             done = 'lose'
                     
-                    #decrease the epsilon value
-                    if((ep>10000) or (self.epsilon>0.1 and iterations%2500==0)):
-                        self.epsilon = self.epsilon/1.005
+                    # decrease the epsilon value
+                    if (e > episodes // 2) or (self.epsilon > 0.1) or (iterations % 5000 == 0):
+                        self.epsilon = self.epsilon/1.01
                         
-                    
-                    #change the matrix values and store them in memory
-                    prev_state = deepcopy(prev_board)
+                    # change the matrix values and store them in memory
+                    prev_state = deepcopy(current_board)
                     prev_state = game.change_values(prev_state)
                     prev_state = np.array(prev_state,dtype=np.float32).reshape(1,4,4,16)
                     replay_labels.append(labels)
                     replay_memory.append(prev_state)
                     
-                    
-                    #back-propagation
+                    # back-propagation
                     if(len(replay_memory)>=max_replay):
                         back_loss = 0
                         batch_num = 0
@@ -360,29 +343,20 @@ class dql():
                             feed_dict = {self.tf_batch_dataset: batch_data, self.tf_batch_labels: batch_labels}
                             _,l = session.run([optimizer,loss],feed_dict=feed_dict)
                             back_loss += l 
-                            
-                            # print("Mini-Batch - {} Back-Prop : {}, Loss : {}".format(batch_num,back,l))
                             batch_num +=1
                         back_loss /= batch_num
                         losses.append(back_loss)
                         
                         #store the parameters in a dictionary
-                        final_parameters['conv1_layer1_weights'] = session.run(self.conv1_layer1_weights)
-                        final_parameters['conv1_layer2_weights'] = session.run(self.conv1_layer2_weights)
-                        final_parameters['conv2_layer1_weights'] = session.run(self.conv2_layer1_weights)
-                        final_parameters['conv2_layer2_weights'] = session.run(self.conv2_layer2_weights)
-                        #final_parameters['conv1_layer1_biases'] = session.run(conv1_layer1_biases)
-                        #final_parameters['conv1_layer2_biases'] = session.run(conv1_layer2_biases)
-                        #final_parameters['conv2_layer1_biases'] = session.run(conv2_layer1_biases)
-                        #final_parameters['conv2_layer2_biases'] = session.run(conv2_layer2_biases)
-                        final_parameters['fc_layer1_weights'] = session.run(self.fc_layer1_weights)
-                        final_parameters['fc_layer2_weights'] = session.run(self.fc_layer2_weights)
-                        final_parameters['fc_layer1_biases'] = session.run(self.fc_layer1_biases)
-                        final_parameters['fc_layer2_biases'] = session.run(self.fc_layer2_biases)
-                        
-                        #number of back-props
-                        back+=1
-                        
+                        outcomes['conv1_layer1_weights'] = session.run(self.conv1_layer1_weights)
+                        outcomes['conv1_layer2_weights'] = session.run(self.conv1_layer2_weights)
+                        outcomes['conv2_layer1_weights'] = session.run(self.conv2_layer1_weights)
+                        outcomes['conv2_layer2_weights'] = session.run(self.conv2_layer2_weights)
+                        outcomes['fc_layer1_weights'] = session.run(self.fc_layer1_weights)
+                        outcomes['fc_layer2_weights'] = session.run(self.fc_layer2_weights)
+                        outcomes['fc_layer1_biases'] = session.run(self.fc_layer1_biases)
+                        outcomes['fc_layer2_biases'] = session.run(self.fc_layer2_biases)
+
                         #make new memory 
                         replay_memory = list()
                         replay_labels = list()
@@ -401,7 +375,7 @@ class dql():
                     start_time = time.time()
                     print("Episode {}-{} finished in {} seconds. Max score: {}. Loss: {}".format(ep-99, ep, elapsed_time, maximum, losses[len(losses)-1])) 
 
-        return final_parameters, scores, losses
+        return outcomes, scores, losses
     
 
 ################################################################################################################
@@ -412,7 +386,7 @@ train model
 
 q = dql()
 q.build_network()
-final_parameters, scores, losses = q.train(episodes=20000, max_replay=5000)
+outcomes, scores, losses = q.train(episodes=20000, max_replay=5000)
 
 
 '''
@@ -426,7 +400,7 @@ save(path='./trained', name='/losses', lis=losses, mode='.txt')
 # save weights
 weights = ['conv1_layer1_weights','conv1_layer2_weights','conv2_layer1_weights','conv2_layer2_weights','fc_layer1_weights','fc_layer1_biases','fc_layer2_weights','fc_layer2_biases']
 for w in weights:
-    flatten = final_parameters[w].reshape(-1,1)
+    flatten = outcomes[w].reshape(-1,1)
     save(path='./trained', name='/' + w, lis=flatten, mode='.csv')
 
 ################################################################################################################
