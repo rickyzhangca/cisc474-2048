@@ -20,7 +20,6 @@ import numpy as np
 from copy import deepcopy
 import random 
 import math
-import matplotlib.pyplot as plt
 import game
 import time
 
@@ -203,8 +202,7 @@ class dql():
             print("Initialized")
 
             # for episode with max score
-            maximum = -1
-            episode = -1
+            max_score = -1
 
             # iterations 
             iterations = 1
@@ -366,14 +364,13 @@ class dql():
                 scores.append(total_score)
                 # print("Episode {} finished with score {}, result : {} board : {}, epsilon  : {}, learning rate : {} ".format(ep,total_score,done,board,epsilon,session.run(learning_rate)))
                 
-                if(maximum < total_score):
-                    maximum = total_score
-                    episode = ep
-                if((ep+1)%100 == 0):
+                if(max_score < total_score):
+                    max_score = total_score
+                if((e+1)%100 == 0):
                     current_time = time.time()
                     elapsed_time = current_time - start_time
                     start_time = time.time()
-                    print("Episode {}-{} finished in {} seconds. Max score: {}. Loss: {}".format(ep-99, ep, elapsed_time, maximum, losses[len(losses)-1])) 
+                    print("Episode {}-{} finished in {} seconds. Max score: {}. Loss: {}".format(e-99, e, elapsed_time, max_score, losses[len(losses)-1])) 
 
         return outcomes, scores, losses
     
