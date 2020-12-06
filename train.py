@@ -169,9 +169,10 @@ class dql():
         labels[move] += merges
         return labels
                         
-    def train(self, episodes=123, max_replay=2000):
+    def train(self, episodes=20000, max_replay=2000):
         scores = []
         losses = []
+        logs = []
         outcomes = {}
 
         # to store states and lables of the game for training states
@@ -200,9 +201,6 @@ class dql():
 
             tf.compat.v1.global_variables_initializer().run()
             print("Initialized")
-
-            # for episode with max score
-            max_score = -1
 
             # iterations 
             iterations = 1
@@ -309,8 +307,8 @@ class dql():
                             done = 'lose'
                     
                     # decrease the epsilon value
-                    if (e > episodes // 2) or (self.epsilon > 0.1) or (iterations % 5000 == 0):
-                        self.epsilon = self.epsilon/1.01
+                    if((e > episodes // 2) or (self.epsilon > 0.1 and iterations % 2500 == 0)):
+                        self.epsilon = self.epsilon / 1.005
                         
                     # change the matrix values and store them in memory
                     prev_state = deepcopy(current_board)
@@ -360,19 +358,17 @@ class dql():
                         replay_labels = list()
 
                     iterations += 1
-                    
-                scores.append(total_score)
-                # print("Episode {} finished with score {}, result : {} board : {}, epsilon  : {}, learning rate : {} ".format(ep,total_score,done,board,epsilon,session.run(learning_rate)))
                 
-                if(max_score < total_score):
-                    max_score = total_score
                 if((e+1)%100 == 0):
                     current_time = time.time()
                     elapsed_time = current_time - start_time
                     start_time = time.time()
-                    print("Episode {}-{} finished in {} seconds. Max score: {}. Loss: {}".format(e-99, e, elapsed_time, max_score, losses[len(losses)-1])) 
+                    scores.append(total_score/100)
+                    log = "Episode {}-{} finished in {} seconds. Average score: {}. Loss: {}.".format(e-99, e, elapsed_time, scores[-1], losses[len(losses)-1])
+                    logs.append(log)
+                    print(log) 
 
-        return outcomes, scores, losses
+        return outcomes, scores, losses, logs
     
 
 ################################################################################################################
@@ -383,7 +379,7 @@ train model
 
 q = dql()
 q.build_network()
-outcomes, scores, losses = q.train(episodes=20000, max_replay=5000)
+outcomes, scores, losses, logs = q.train(episodes=200, max_replay=5000)
 
 
 '''
@@ -393,6 +389,7 @@ save the records and outcomes
 # save scores and losses
 save(path='./trained', name='/scores', lis=scores, mode='.txt')
 save(path='./trained', name='/losses', lis=losses, mode='.txt')
+save(path='./trained', name='/logs', lis=logs, mode='.txt')
 
 # save weights
 weights = ['conv1_layer1_weights','conv1_layer2_weights','conv2_layer1_weights','conv2_layer2_weights','fc_layer1_weights','fc_layer1_biases','fc_layer2_weights','fc_layer2_biases']

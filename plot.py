@@ -33,7 +33,7 @@ ax3 = fig.add_subplot(gs[1,:])
 loss = []
 with open('./trained/losses.txt') as f:
     for line in f:
-        loss.append(round(float(line.strip('\n'))))
+        loss.append(float(line.strip('\n')))
 ax3.set_title("loss")
 ax3.set_xlabel("episode")
 ax3.plot(loss)
