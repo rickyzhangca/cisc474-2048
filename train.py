@@ -364,7 +364,7 @@ class dql():
                     elapsed_time = current_time - start_time
                     start_time = time.time()
                     scores.append(total_score/100)
-                    log = "Episode {}-{} finished in {} seconds. Average score: {}. Loss: {}.".format(e-99, e, elapsed_time, scores[-1], losses[len(losses)-1])
+                    log = "Episode {}-{} finished in {} seconds. Average score: {}. Loss: {}.\n".format(e-99, e, elapsed_time, scores[-1], losses[len(losses)-1])
                     logs.append(log)
                     print(log) 
 
@@ -379,7 +379,7 @@ train model
 
 q = dql()
 q.build_network()
-outcomes, scores, losses, logs = q.train(episodes=200, max_replay=5000)
+outcomes, scores, losses, logs = q.train(episodes=20000, max_replay=5000)
 
 
 '''

@@ -85,22 +85,25 @@ def cover_up(mat):
 def merge(mat):
     done=False
     score = 0
+    visited = []
     for i in range(4):
          for j in range(3):
-             if mat[i][j]==mat[i][j+1] and mat[i][j]!=0:
+             if (not(mat[i][j] in visited)) and (not(mat[i][j+1] in visited)) and mat[i][j]==mat[i][j+1] and mat[i][j]!=0:
                  mat[i][j]*=2
                  score += mat[i][j]   
                  mat[i][j+1]=0
+                 visited.append(mat[i][j])
+                 visited.append(mat[i][j+1])
                  done=True
-                 return (mat,done,score)
     for i in range(3):
          for j in range(4):
-             if mat[i+1][j]==mat[i][j] and mat[i][j]!=0:
+             if (not(mat[i][j] in visited)) and (not(mat[i+1][j] in visited)) and mat[i+1][j]==mat[i][j] and mat[i][j]!=0:
                  mat[i][j]*=2
                  score += mat[i][j]   
                  mat[i+1][j]=0
+                 visited.append(mat[i][j])
+                 visited.append(mat[i+1][j])
                  done=True
-                 return (mat,done,score)
     return (mat,done,score)
 
 # up move
