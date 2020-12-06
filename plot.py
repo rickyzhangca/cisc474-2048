@@ -41,6 +41,15 @@ ax3.plot(loss)
 plt.show()
 '''
 
+'''
+plot scores and losses captured during the training
+'''
+
+
+'''
+plot the game scores from playing 2048 game with random policy vs trained policy
+'''
+
 scores1 = []
 with open('./scores1.txt') as f:
     for line in f:
