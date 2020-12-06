@@ -22,6 +22,7 @@ import random
 import math
 import game
 import time
+import helpers
 
 ################################################################################################################
 
@@ -40,22 +41,6 @@ def setup():
     print(tf.config.list_physical_devices('GPU'))
     
 setup()
-
-'''
-save a given list to txt or csv file using w+ policy
-'''
-def save(path, name, lis, mode):
-    file = open(path + name + mode,'w+')
-    if mode == '.txt':  
-        for i in range(len(lis)):
-            file.write(str(lis[i])+"\n")     
-        file.close()
-    elif mode == '.csv':
-        file.write('Episode,Weight\n') ###
-        for i in range(lis.shape[0]):
-            file.write(str(i) + ',' + str(lis[i][0])+'\n') 
-    file.close()
-    print(path + name + mode + " is written")
 
 ################################################################################################################
 
@@ -387,14 +372,14 @@ save the records and outcomes
 '''
 
 # save scores and losses
-save(path='./trained', name='/scores', lis=scores, mode='.txt')
-save(path='./trained', name='/losses', lis=losses, mode='.txt')
-save(path='./trained', name='/logs', lis=logs, mode='.txt')
+helpers.save(path='./trained', name='/scores', lis=scores, mode='.txt')
+helpers.save(path='./trained', name='/losses', lis=losses, mode='.txt')
+shelpers.ave(path='./trained', name='/logs', lis=logs, mode='.txt')
 
 # save weights
 weights = ['conv1_layer1_weights','conv1_layer2_weights','conv2_layer1_weights','conv2_layer2_weights','fc_layer1_weights','fc_layer1_biases','fc_layer2_weights','fc_layer2_biases']
 for w in weights:
     flatten = outcomes[w].reshape(-1,1)
-    save(path='./trained', name='/' + w, lis=flatten, mode='.csv')
+    helpers.save(path='./trained', name='/' + w, lis=flatten, mode='.csv')
 
 ################################################################################################################

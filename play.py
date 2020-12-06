@@ -12,52 +12,12 @@ import math
 import time
 from tkinter import *
 from random import randrange
+import helpers
 
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 
 scores= []
-
-def save(path, name, lis, mode):
-    file = open(path + name + mode,'w+')
-    if mode == '.txt':  
-        for i in range(len(lis)):
-            file.write(str(lis[i])+"\n")     
-        file.close()
-    elif mode == '.csv':
-        file.write('Episode,Weight\n') ###
-        for i in range(lis.shape[0]):
-            file.write(str(i) + ',' + str(lis[i][0])+'\n') 
-    file.close()
-    print(path + name + mode + " is written")
-
-#conv layer1 depth
-depth1 = 128
-
-#conv layer2 depth
-depth2 = 128
-
-#input depth
-input_depth = 16
-
-#fully conneted hidden layer
-hidden_units = 256
-
-#output layer
-output_units = 4
-
-#shape of weights
-'''
-conv1_layer1_shape = [2,1,input_depth,depth1]
-conv1_layer2_shape = [2,1,depth1,depth2]
-conv2_layer1_shape = [1,2,input_depth,depth1]
-conv2_layer2_shape = [1,2,depth1,depth2]
-
-fc_layer1_w_shape = [3*4*depth1*2+ 4*2*depth2*2 + 3*3*depth2*2,hidden_units]
-fc_layer1_b_shape = [hidden_units]
-fc_layer2_w_shape = [hidden_units,output_units]
-fc_layer2_b_shape = [output_units]'''
-
 parameters = dict()
 
 path = r'./trained2'
@@ -140,28 +100,37 @@ def cover_up(mat):
                 count+=1
     return (new,done)
 
-def merge(mat):
+def merge(mat, chain_merge=False):
     done=False
     score = 0
-    visited = []
-    for i in range(4):
-         for j in range(3):
-             if (not(mat[i][j] in visited)) and (not(mat[i][j+1] in visited)) and mat[i][j]==mat[i][j+1] and mat[i][j]!=0:
-                 mat[i][j]*=2
-                 score += mat[i][j]   
-                 mat[i][j+1]=0
-                 visited.append(mat[i][j])
-                 visited.append(mat[i][j+1])
-                 done=True
-    for i in range(3):
-         for j in range(4):
-             if (not(mat[i][j] in visited)) and (not(mat[i+1][j] in visited)) and mat[i+1][j]==mat[i][j] and mat[i][j]!=0:
-                 mat[i][j]*=2
-                 score += mat[i][j]   
-                 mat[i+1][j]=0
-                 visited.append(mat[i][j])
-                 visited.append(mat[i+1][j])
-                 done=True
+    if chain_merge:
+        for i in range(4):
+            for j in range(3):
+                if mat[i][j]==mat[i][j+1] and mat[i][j]!=0:
+                    mat[i][j]*=2
+                    score += mat[i][j]   
+                    mat[i][j+1]=0
+                    done=True
+    else:
+        visited = []
+        for i in range(4):
+            for j in range(3):
+                if (not(mat[i][j] in visited)) and (not(mat[i][j+1] in visited)) and mat[i][j]==mat[i][j+1] and mat[i][j]!=0:
+                    mat[i][j]*=2
+                    score += mat[i][j]   
+                    mat[i][j+1]=0
+                    visited.append(mat[i][j])
+                    visited.append(mat[i][j+1])
+                    done=True
+        for i in range(3):
+            for j in range(4):
+                if (not(mat[i][j] in visited)) and (not(mat[i+1][j] in visited)) and mat[i+1][j]==mat[i][j] and mat[i][j]!=0:
+                    mat[i][j]*=2
+                    score += mat[i][j]   
+                    mat[i+1][j]=0
+                    visited.append(mat[i][j])
+                    visited.append(mat[i+1][j])
+                    done=True
     return (mat,done,score)
 
 
@@ -404,7 +373,7 @@ class GameGrid(Frame):
                 for j in i:
                     score += j  
             scores.append(score)
-            save(path='./', name='/scores2', lis=scores, mode='.txt')
+            helpers.save(path='./', name='/scores2', lis=scores, mode='.txt')
             self.init_matrix()
             self.update_grid_cells()
             self.after(1,self.make_move)

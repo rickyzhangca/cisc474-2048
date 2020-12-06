@@ -212,12 +212,14 @@ single_dataset   = tf.placeholder(tf.float32,shape=(1,4,4,16))
 #conv layer1 weights
 conv1_layer1_weights = tf.Variable(tf.truncated_normal([1,2,input_units,depth1],mean=0,stddev=0.01))
 conv2_layer1_weights = tf.Variable(tf.truncated_normal([2,1,input_units,depth1],mean=0,stddev=0.01))
+print(conv1_layer1_weights.shape)
+print(conv2_layer1_weights.shape)
 
 #conv layer2 weights
 conv1_layer2_weights = tf.Variable(tf.truncated_normal([1,2,depth1,depth2],mean=0,stddev=0.01))
 conv2_layer2_weights = tf.Variable(tf.truncated_normal([2,1,depth1,depth2],mean=0,stddev=0.01))
-
-
+print(conv2_layer2_weights.shape)
+print(conv2_layer2_weights.shape)
 
 #FUllY CONNECTED LAYERS
 expand_size = 2*4*depth2*2 + 3*3*depth2*2 + 4*3*depth1*2
@@ -225,7 +227,10 @@ fc_layer1_weights = tf.Variable(tf.truncated_normal([expand_size,hidden_units],m
 fc_layer1_biases = tf.Variable(tf.truncated_normal([1,hidden_units],mean=0,stddev=0.01))
 fc_layer2_weights = tf.Variable(tf.truncated_normal([hidden_units,output_units],mean=0,stddev=0.01))
 fc_layer2_biases = tf.Variable(tf.truncated_normal([1,output_units],mean=0,stddev=0.01))
-
+print(fc_layer1_weights.shape)
+print(fc_layer1_biases.shape)
+print(fc_layer2_weights.shape)
+print(fc_layer2_biases.shape)
 
 #model
 def model(dataset):

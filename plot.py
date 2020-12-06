@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
-
+'''
 gs = gridspec.GridSpec(2,2)
 
 # fig, (ax1, ax2) = plt.subplots(1, 2)
@@ -38,4 +38,17 @@ ax3.set_title("loss")
 ax3.set_xlabel("episode")
 ax3.plot(loss)
 
+plt.show()
+'''
+
+scores1 = []
+with open('./scores1.txt') as f:
+    for line in f:
+        scores1.append(round(float(line.strip('\n'))))
+scores2 = []
+with open('./scores2.txt') as f:
+    for line in f:
+        scores2.append(round(float(line.strip('\n'))))
+plt.plot(scores1)
+plt.plot(scores2)
 plt.show()
