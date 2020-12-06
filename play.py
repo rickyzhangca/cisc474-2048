@@ -43,7 +43,7 @@ fc_layer2_b_shape = [output_units]
 
 parameters = dict()
 
-path = r'./trained'
+path = r'./trained2'
 parameters['conv1_layer1'] = np.array(pd.read_csv(path + r'/conv1_layer1_weights.csv')['Weight']).reshape(conv1_layer1_shape)
 parameters['conv1_layer2'] = np.array(pd.read_csv(path + r'/conv1_layer2_weights.csv')['Weight']).reshape(conv1_layer2_shape)
 parameters['conv2_layer1'] = np.array(pd.read_csv(path + r'/conv2_layer1_weights.csv')['Weight']).reshape(conv2_layer1_shape)
@@ -126,22 +126,25 @@ def cover_up(mat):
 def merge(mat):
     done=False
     score = 0
+    visited = []
     for i in range(4):
          for j in range(3):
-             if mat[i][j]==mat[i][j+1] and mat[i][j]!=0:
+             if (not(mat[i][j] in visited)) and (not(mat[i][j+1] in visited)) and mat[i][j]==mat[i][j+1] and mat[i][j]!=0:
                  mat[i][j]*=2
                  score += mat[i][j]   
                  mat[i][j+1]=0
+                 visited.append(mat[i][j])
+                 visited.append(mat[i][j+1])
                  done=True
-                 return (mat,done,score)
     for i in range(3):
          for j in range(4):
-             if mat[i+1][j]==mat[i][j] and mat[i][j]!=0:
+             if (not(mat[i][j] in visited)) and (not(mat[i+1][j] in visited)) and mat[i+1][j]==mat[i][j] and mat[i][j]!=0:
                  mat[i][j]*=2
                  score += mat[i][j]   
                  mat[i+1][j]=0
+                 visited.append(mat[i][j])
+                 visited.append(mat[i+1][j])
                  done=True
-                 return (mat,done,score)
     return (mat,done,score)
 
 
@@ -356,7 +359,7 @@ class GameGrid(Frame):
     def make_move(self):
         output = learned_sess.run([single_output],feed_dict = {single_dataset:change_values(self.matrix)})
         move = np.argmax(output[0])
-        print(move)
+        # print(move)
         self.matrix,done,tempo = controls[move](self.matrix)
         done=True
         
@@ -364,7 +367,7 @@ class GameGrid(Frame):
         #    self.grid_cells[1][1].configure(text="You",bg=BACKGROUND_COLOR_CELL_EMPTY)
         #    self.grid_cells[1][2].configure(text="Win!",bg=BACKGROUND_COLOR_CELL_EMPTY)
         #    done=False
-        print(game_state(self.matrix))
+        # print(game_state(self.matrix))
         if game_state(self.matrix)=='lose':
             self.grid_cells[1][1].configure(text="You",bg=BACKGROUND_COLOR_CELL_EMPTY)
             self.grid_cells[1][2].configure(text="Lose!",bg=BACKGROUND_COLOR_CELL_EMPTY)
@@ -377,7 +380,12 @@ class GameGrid(Frame):
         if(done==True):
             self.after(7,self.make_move)
         else:
-            time.sleep(3)
+            time.sleep(1)
+            score = 0
+            for i in self.matrix:
+                for j in i:
+                    score += j
+            print(score)
             self.init_matrix()
             self.update_grid_cells()
             self.after(7,self.make_move)
