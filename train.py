@@ -374,7 +374,7 @@ save the records and outcomes
 # save scores and losses
 helpers.save(path='./trained', name='/scores', lis=scores, mode='.txt')
 helpers.save(path='./trained', name='/losses', lis=losses, mode='.txt')
-shelpers.ave(path='./trained', name='/logs', lis=logs, mode='.txt')
+helpers.ave(path='./trained', name='/logs', lis=logs, mode='.txt')
 
 # save weights
 weights = ['conv1_layer1_weights','conv1_layer2_weights','conv2_layer1_weights','conv2_layer2_weights','fc_layer1_weights','fc_layer1_biases','fc_layer2_weights','fc_layer2_biases']
