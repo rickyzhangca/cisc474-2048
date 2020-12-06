@@ -354,6 +354,7 @@ class GameGrid(Frame):
         #    self.grid_cells[1][1].configure(text="You",bg=BACKGROUND_COLOR_CELL_EMPTY)
         #    self.grid_cells[1][2].configure(text="Win!",bg=BACKGROUND_COLOR_CELL_EMPTY)
         #    done=False
+        print(game_state(self.matrix))
         if game_state(self.matrix)=='lose':
             self.grid_cells[1][1].configure(text="You",bg=BACKGROUND_COLOR_CELL_EMPTY)
             self.grid_cells[1][2].configure(text="Lose!",bg=BACKGROUND_COLOR_CELL_EMPTY)
@@ -370,18 +371,6 @@ class GameGrid(Frame):
             self.init_matrix()
             self.update_grid_cells()
             self.after(7,self.make_move)
-
-    def generate_next(self):
-        empty_cells = []
-        for i in range(len(mat)):
-            for j in range(len(mat)):
-                if(mat[i][j]==0):
-                    empty_cells.append((i,j))
-        if(len(empty_cells)==0):
-            return 0,false
-        index_pair = empty_cells[random.randint(0,len(empty_cells)-1)]
-        index = index_pair
-        self.matrix[index[0]][index[1]] = 2
 
 root = Tk()
 gamegrid = GameGrid()
