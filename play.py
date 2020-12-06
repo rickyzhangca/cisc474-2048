@@ -11,9 +11,25 @@ import random
 import math
 import time
 from tkinter import *
+from random import randrange
 
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
+
+scores= []
+
+def save(path, name, lis, mode):
+    file = open(path + name + mode,'w+')
+    if mode == '.txt':  
+        for i in range(len(lis)):
+            file.write(str(lis[i])+"\n")     
+        file.close()
+    elif mode == '.csv':
+        file.write('Episode,Weight\n') ###
+        for i in range(lis.shape[0]):
+            file.write(str(i) + ',' + str(lis[i][0])+'\n') 
+    file.close()
+    print(path + name + mode + " is written")
 
 #conv layer1 depth
 depth1 = 128
@@ -31,6 +47,7 @@ hidden_units = 256
 output_units = 4
 
 #shape of weights
+'''
 conv1_layer1_shape = [2,1,input_depth,depth1]
 conv1_layer2_shape = [2,1,depth1,depth2]
 conv2_layer1_shape = [1,2,input_depth,depth1]
@@ -39,19 +56,19 @@ conv2_layer2_shape = [1,2,depth1,depth2]
 fc_layer1_w_shape = [3*4*depth1*2+ 4*2*depth2*2 + 3*3*depth2*2,hidden_units]
 fc_layer1_b_shape = [hidden_units]
 fc_layer2_w_shape = [hidden_units,output_units]
-fc_layer2_b_shape = [output_units]
+fc_layer2_b_shape = [output_units]'''
 
 parameters = dict()
 
 path = r'./trained2'
-parameters['conv1_layer1'] = np.array(pd.read_csv(path + r'/conv1_layer1_weights.csv')['Weight']).reshape(conv1_layer1_shape)
-parameters['conv1_layer2'] = np.array(pd.read_csv(path + r'/conv1_layer2_weights.csv')['Weight']).reshape(conv1_layer2_shape)
-parameters['conv2_layer1'] = np.array(pd.read_csv(path + r'/conv2_layer1_weights.csv')['Weight']).reshape(conv2_layer1_shape)
-parameters['conv2_layer2'] = np.array(pd.read_csv(path + r'/conv2_layer2_weights.csv')['Weight']).reshape(conv2_layer2_shape)
-parameters['fc_layer1_w'] = np.array(pd.read_csv(path + r'/fc_layer1_weights.csv')['Weight']).reshape(fc_layer1_w_shape)
-parameters['fc_layer1_b'] = np.array(pd.read_csv(path + r'/fc_layer1_biases.csv')['Weight']).reshape(fc_layer1_b_shape)
-parameters['fc_layer2_w'] = np.array(pd.read_csv(path + r'/fc_layer2_weights.csv')['Weight']).reshape(fc_layer2_w_shape)
-parameters['fc_layer2_b'] = np.array(pd.read_csv(path + r'/fc_layer2_biases.csv')['Weight']).reshape(fc_layer2_b_shape)
+parameters['conv1_layer1'] = np.array(pd.read_csv(path + r'/conv1_layer1_weights.csv')['Weight']).reshape((1, 2, 16, 128))
+parameters['conv1_layer2'] = np.array(pd.read_csv(path + r'/conv1_layer2_weights.csv')['Weight']).reshape((2, 1, 128, 128))
+parameters['conv2_layer1'] = np.array(pd.read_csv(path + r'/conv2_layer1_weights.csv')['Weight']).reshape((2, 1, 16, 128))
+parameters['conv2_layer2'] = np.array(pd.read_csv(path + r'/conv2_layer2_weights.csv')['Weight']).reshape((2, 1, 128, 128))
+parameters['fc_layer1_w'] = np.array(pd.read_csv(path + r'/fc_layer1_weights.csv')['Weight']).reshape((7424, 256))
+parameters['fc_layer1_b'] = np.array(pd.read_csv(path + r'/fc_layer1_biases.csv')['Weight']).reshape((1, 256))
+parameters['fc_layer2_w'] = np.array(pd.read_csv(path + r'/fc_layer2_weights.csv')['Weight']).reshape((256, 4))
+parameters['fc_layer2_b'] = np.array(pd.read_csv(path + r'/fc_layer2_biases.csv')['Weight']).reshape((1, 4))
 
 def new_game(n):
     matrix = []
@@ -357,8 +374,9 @@ class GameGrid(Frame):
         self.update_idletasks()
         
     def make_move(self):
-        output = learned_sess.run([single_output],feed_dict = {single_dataset:change_values(self.matrix)})
-        move = np.argmax(output[0])
+        #output = learned_sess.run([single_output],feed_dict = {single_dataset:change_values(self.matrix)})
+        #move = np.argmax(output[0])
+        move = randrange(4)
         # print(move)
         self.matrix,done,tempo = controls[move](self.matrix)
         done=True
@@ -378,19 +396,19 @@ class GameGrid(Frame):
         
         
         if(done==True):
-            self.after(7,self.make_move)
+            self.after(1,self.make_move)
         else:
-            time.sleep(1)
+            # time.sleep(0)
             score = 0
             for i in self.matrix:
                 for j in i:
-                    score += j
-            print(score)
+                    score += j  
+            scores.append(score)
+            save(path='./', name='/scores2', lis=scores, mode='.txt')
             self.init_matrix()
             self.update_grid_cells()
-            self.after(7,self.make_move)
+            self.after(1,self.make_move)
 
 root = Tk()
 gamegrid = GameGrid()
 root.mainloop()
-
