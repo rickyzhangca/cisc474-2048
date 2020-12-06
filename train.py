@@ -4,7 +4,7 @@
 
 CISC 474 Project: A Reinforcement-Learning Agent to Tackle the Game 2048
 
-? - ?
+Tao Ma - 20060593
 Ricky Zhang - 20053254
 ? - ?
 ? - ?
