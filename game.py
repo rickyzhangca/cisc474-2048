@@ -86,12 +86,21 @@ def merge(mat):
     done=False
     score = 0
     for i in range(4):
-        for j in range(3):
-            if mat[i][j]==mat[i][j+1] and mat[i][j]!=0:
-                mat[i][j]*=2
-                score += mat[i][j]   
-                mat[i][j+1]=0
-                done=True
+         for j in range(3):
+             if mat[i][j]==mat[i][j+1] and mat[i][j]!=0:
+                 mat[i][j]*=2
+                 score += mat[i][j]   
+                 mat[i][j+1]=0
+                 done=True
+                 return (mat,done,score)
+    for i in range(3):
+         for j in range(4):
+             if mat[i+1][j]==mat[i][j] and mat[i][j]!=0:
+                 mat[i][j]*=2
+                 score += mat[i][j]   
+                 mat[i+1][j]=0
+                 done=True
+                 return (mat,done,score)
     return (mat,done,score)
 
 # up move

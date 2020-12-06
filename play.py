@@ -133,6 +133,15 @@ def merge(mat):
                  score += mat[i][j]   
                  mat[i][j+1]=0
                  done=True
+                 return (mat,done,score)
+    for i in range(3):
+         for j in range(4):
+             if mat[i+1][j]==mat[i][j] and mat[i][j]!=0:
+                 mat[i][j]*=2
+                 score += mat[i][j]   
+                 mat[i+1][j]=0
+                 done=True
+                 return (mat,done,score)
     return (mat,done,score)
 
 
@@ -347,6 +356,7 @@ class GameGrid(Frame):
     def make_move(self):
         output = learned_sess.run([single_output],feed_dict = {single_dataset:change_values(self.matrix)})
         move = np.argmax(output[0])
+        print(move)
         self.matrix,done,tempo = controls[move](self.matrix)
         done=True
         
