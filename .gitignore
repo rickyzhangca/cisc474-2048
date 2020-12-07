@@ -160,3 +160,4 @@ tf2/bin/toco_from_protos
 tf2/bin/wheel
 tf2/pyvenv.cfg
 .vscode/settings.json
+.DS_Store
