@@ -17,10 +17,13 @@ import helpers
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
 
-scores= []
+global scores
+scores = []
 parameters = dict()
+global play
+play = 200
 
-path = r'./trained2'
+path = r'./trained'
 parameters['conv1_layer1'] = np.array(pd.read_csv(path + r'/conv1_layer1_weights.csv')['Weight']).reshape((1, 2, 16, 128))
 parameters['conv1_layer2'] = np.array(pd.read_csv(path + r'/conv1_layer2_weights.csv')['Weight']).reshape((2, 1, 128, 128))
 parameters['conv2_layer1'] = np.array(pd.read_csv(path + r'/conv2_layer1_weights.csv')['Weight']).reshape((2, 1, 16, 128))
@@ -343,9 +346,9 @@ class GameGrid(Frame):
         self.update_idletasks()
         
     def make_move(self):
-        #output = learned_sess.run([single_output],feed_dict = {single_dataset:change_values(self.matrix)})
-        #move = np.argmax(output[0])
-        move = randrange(4)
+        output = learned_sess.run([single_output],feed_dict = {single_dataset:change_values(self.matrix)})
+        move = np.argmax(output[0])
+        #move = randrange(4)
         # print(move)
         self.matrix,done,tempo = controls[move](self.matrix)
         done=True
@@ -372,12 +375,24 @@ class GameGrid(Frame):
             for i in self.matrix:
                 for j in i:
                     score += j  
+            global scores
             scores.append(score)
-            helpers.save(path='./', name='/scores2', lis=scores, mode='.txt')
-            self.init_matrix()
-            self.update_grid_cells()
-            self.after(1,self.make_move)
+            global play
+            if play > 0:
+                play -= 1
+                self.init_matrix()
+                self.update_grid_cells()
+                self.after(1,self.make_move)
+                print(play)
+            else: 
+                savee()
+
+def savee():
+    helpers.save(path='./played/', name='final_value_trained', lis=scores, mode='.txt')
+    # helpers.save(path='./played/', name='final_value_random', lis=scores, mode='.txt')
+    exit()
 
 root = Tk()
 gamegrid = GameGrid()
 root.mainloop()
+

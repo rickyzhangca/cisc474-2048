@@ -2,6 +2,8 @@
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
+import helpers
+
 '''
 gs = gridspec.GridSpec(2,2)
 
@@ -50,14 +52,8 @@ plot scores and losses captured during the training
 plot the game scores from playing 2048 game with random policy vs trained policy
 '''
 
-scores1 = []
-with open('./scores1.txt') as f:
-    for line in f:
-        scores1.append(round(float(line.strip('\n'))))
-scores2 = []
-with open('./scores2.txt') as f:
-    for line in f:
-        scores2.append(round(float(line.strip('\n'))))
-plt.plot(scores1)
-plt.plot(scores2)
+plt.plot(helpers.read(path='./played/', name='final_value_random', mode='.txt'))
+plt.plot()
+
+plt.plot(helpers.read(path='./played/', name='final_value_trained', mode='.txt'))
 plt.show()

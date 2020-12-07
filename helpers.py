@@ -1,4 +1,3 @@
-
 '''
 save a given list to txt or csv file using w+ policy
 '''
@@ -15,3 +14,15 @@ def save(path, name, lis, mode):
             file.write(str(i) + ',' + str(lis[i][0])+'\n') 
     file.close()
     print(path + name + mode + " is written")
+
+
+'''
+read a csv/txt file to list of int/float
+'''
+def read(path, name, mode):
+    lis = []
+    if mode == '.txt':
+        with open(path + name + mode) as f:
+            for line in f:
+                lis.append(round(float(line.strip('\n'))))
+    return lis
