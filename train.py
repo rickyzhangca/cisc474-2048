@@ -6,8 +6,8 @@ CISC 474 Project: A Reinforcement-Learning Agent to Tackle the Game 2048
 
 Tao Ma - 20060593
 Ricky Zhang - 20053254
-? - ?
-? - ?
+Yuntian Shan - 20057524
+Hanyi Li - 20057296
 
 Trained with Python 3.8.6 + Tensorflow 2.3.0 + CUDA 10.1 + cuDNN 7.6
 
@@ -77,28 +77,28 @@ class dql():
         self.fc_layer1_biases = tf.Variable(tf.random.truncated_normal([1,self.hidden_units],mean=0,stddev=0.01))
         self.fc_layer2_weights = tf.Variable(tf.random.truncated_normal([self.hidden_units,self.output_units],mean=0,stddev=0.01))
         self.fc_layer2_biases = tf.Variable(tf.random.truncated_normal([1,self.output_units],mean=0,stddev=0.01))
-    
+
     def model(self, dataset):
         # layer1
-        conv1 = tf.nn.conv2d(dataset,self.conv1_layer1_weights,[1,1,1,1],padding='VALID') 
-        conv2 = tf.nn.conv2d(dataset,self.conv2_layer1_weights,[1,1,1,1],padding='VALID') 
-        
+        conv1 = tf.nn.conv2d(dataset,self.conv1_layer1_weights,[1,1,1,1],padding='VALID')
+        conv2 = tf.nn.conv2d(dataset,self.conv2_layer1_weights,[1,1,1,1],padding='VALID')
+
         # layer1 relu activation
         relu1 = tf.nn.relu(conv1)
         relu2 = tf.nn.relu(conv2)
-        
+
         # layer2
-        conv11 = tf.nn.conv2d(relu1,self.conv1_layer2_weights,[1,1,1,1],padding='VALID') 
-        conv12 = tf.nn.conv2d(relu1,self.conv2_layer2_weights,[1,1,1,1],padding='VALID') 
-        conv21 = tf.nn.conv2d(relu2,self.conv1_layer2_weights,[1,1,1,1],padding='VALID') 
-        conv22 = tf.nn.conv2d(relu2,self.conv2_layer2_weights,[1,1,1,1],padding='VALID') 
+        conv11 = tf.nn.conv2d(relu1,self.conv1_layer2_weights,[1,1,1,1],padding='VALID')
+        conv12 = tf.nn.conv2d(relu1,self.conv2_layer2_weights,[1,1,1,1],padding='VALID')
+        conv21 = tf.nn.conv2d(relu2,self.conv1_layer2_weights,[1,1,1,1],padding='VALID')
+        conv22 = tf.nn.conv2d(relu2,self.conv2_layer2_weights,[1,1,1,1],padding='VALID')
 
         # layer2 relu activation
         relu11 = tf.nn.relu(conv11)
         relu12 = tf.nn.relu(conv12)
         relu21 = tf.nn.relu(conv21)
         relu22 = tf.nn.relu(conv22)
-        
+
         # get shapes of all activations
         shape1 = relu1.get_shape().as_list()
         shape2 = relu2.get_shape().as_list()
@@ -124,7 +124,7 @@ class dql():
 
         # output layer
         output = tf.matmul(hidden,self.fc_layer2_weights) + self.fc_layer2_biases
-        
+
         # return output
         return output
 
@@ -132,7 +132,7 @@ class dql():
         legal_moves = list()
         for i in range(4):
             next_board = deepcopy(board)
-            next_board,_,_ = game.controls[i](next_board)
+            next_board,_ = game.controls[i](next_board)
             if not np.array_equal(next_board,board):
                 legal_moves.append(i)
         if (len(legal_moves) == 0):
@@ -141,8 +141,8 @@ class dql():
 
     def make_random_move(self, next_board, legal_moves):
         move = random.sample(legal_moves,1)[0]
-        next_board,_,score = game.controls[move](next_board)
-        done = game.game_state(next_board)
+        next_board,score = game.controls[move](next_board)
+        done = game.isgameover(next_board)
         return done, move, next_board, score
     
     def check_merges(self, current_board, next_board):
@@ -193,8 +193,8 @@ class dql():
             start_time = time.time()
             for e in range(episodes):
                 board = game.new_game(4)
-                game.add_two(board)
-                game.add_two(board)
+                game.randomfill(board)
+                game.randomfill(board)
                 
                 # whether episode finished or not
                 done = 'not over'
@@ -234,7 +234,7 @@ class dql():
                         merges = self.check_merges(current_board, next_board)
 
                         if done == 'not over':
-                            next_board = game.add_two(next_board)
+                            next_board = game.randomfill(next_board)
 
                         board = deepcopy(next_board)
                         
@@ -259,7 +259,7 @@ class dql():
                             prev_state = deepcopy(current_board)
                             
                             # apply the LEGAl Move with max q_value
-                            next_board,_,score = game.controls[con](prev_state)
+                            next_board,score = game.controls[con](prev_state)
                             
                             #if illegal move label = 0
                             if(np.array_equal(current_board,next_board)):
@@ -268,7 +268,7 @@ class dql():
                                 
                             merges = self.check_merges(current_board, next_board)
                    
-                            next_board = game.add_two(next_board)
+                            next_board = game.randomfill(next_board)
                             board = deepcopy(next_board)
                             total_score += score
                             
@@ -351,35 +351,36 @@ class dql():
                     scores.append(total_score/100)
                     log = "Episode {}-{} finished in {} seconds. Average score: {}. Loss: {}.\n".format(e-99, e, elapsed_time, scores[-1], losses[len(losses)-1])
                     logs.append(log)
-                    print(log) 
+                    print(log)
 
         return outcomes, scores, losses, logs
     
 
 ################################################################################################################
 
-'''
-train model
-'''
+if __name__ == '__main__':
+    '''
+    train model
+    '''
 
-q = dql()
-q.build_network()
-outcomes, scores, losses, logs = q.train(episodes=20000, max_replay=5000)
+    q = dql()
+    q.build_network()
+    outcomes, scores, losses, logs = q.train(episodes=20000, max_replay=5000)
 
 
-'''
-save the records and outcomes
-'''
+    '''
+    save the records and outcomes
+    '''
 
-# save scores and losses
-helpers.save(path='./trained/', name='scores', lis=scores, mode='.txt')
-helpers.save(path='./trained/', name='losses', lis=losses, mode='.txt')
-helpers.save(path='./trained/', name='/ogs', lis=logs, mode='.txt')
+    # save scores and losses
+    helpers.save(path='./trained/', name='scores', lis=scores, mode='.txt')
+    helpers.save(path='./trained/', name='losses', lis=losses, mode='.txt')
+    helpers.save(path='./trained/', name='/ogs', lis=logs, mode='.txt')
 
-# save weights
-weights = ['conv1_layer1_weights','conv1_layer2_weights','conv2_layer1_weights','conv2_layer2_weights','fc_layer1_weights','fc_layer1_biases','fc_layer2_weights','fc_layer2_biases']
-for w in weights:
-    flatten = outcomes[w].reshape(-1,1)
-    helpers.save(path='./trained/', name=w, lis=flatten, mode='.csv')
+    # save weights
+    weights = ['conv1_layer1_weights','conv1_layer2_weights','conv2_layer1_weights','conv2_layer2_weights','fc_layer1_weights','fc_layer1_biases','fc_layer2_weights','fc_layer2_biases']
+    for w in weights:
+        flatten = outcomes[w].reshape(-1,1)
+        helpers.save(path='./trained/', name=w, lis=flatten, mode='.csv')
 
-################################################################################################################
+    ################################################################################################################

@@ -13,6 +13,7 @@ import time
 from tkinter import *
 from random import randrange
 import helpers
+from game import *
 
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
@@ -33,157 +34,6 @@ parameters['fc_layer1_b'] = np.array(pd.read_csv(path + r'/fc_layer1_biases.csv'
 parameters['fc_layer2_w'] = np.array(pd.read_csv(path + r'/fc_layer2_weights.csv')['Weight']).reshape((256, 4))
 parameters['fc_layer2_b'] = np.array(pd.read_csv(path + r'/fc_layer2_biases.csv')['Weight']).reshape((1, 4))
 
-def new_game(n):
-    matrix = []
-
-    for i in range(n):
-        matrix.append([0] * n)
-    return matrix
-
-def add_two(mat):
-    empty_cells = []
-    for i in range(len(mat)):
-        for j in range(len(mat)):
-            if(mat[i][j]==0):
-                empty_cells.append((i,j))
-    if(len(empty_cells)==0):
-        return mat
-    index_pair = empty_cells[random.randint(0,len(empty_cells)-1)]
-    
-    num = np.random.random(1)
-    if(num>0.9):
-        mat[index_pair[0]][index_pair[1]]=4
-    else:
-        mat[index_pair[0]][index_pair[1]]=2
-    return mat
-
-def game_state(mat):
-    for i in range(len(mat)-1): #intentionally reduced to check the row on the right and below
-        for j in range(len(mat[0])-1): #more elegant to use exceptions but most likely this will be their solution
-            if mat[i][j]==mat[i+1][j] or mat[i][j+1]==mat[i][j]:
-                return 'not over'
-    for i in range(len(mat)): #check for any zero entries
-        for j in range(len(mat[0])):
-            if mat[i][j]==0:
-                return 'not over'
-    for k in range(len(mat)-1): #to check the left/right entries on the last row
-        if mat[len(mat)-1][k]==mat[len(mat)-1][k+1]:
-            return 'not over'
-    for j in range(len(mat)-1): #check up/down entries on last column
-        if mat[j][len(mat)-1]==mat[j+1][len(mat)-1]:
-            return 'not over'
-    return 'lose'
-
-def reverse(mat):
-    new=[]
-    for i in range(len(mat)):
-        new.append([])
-        for j in range(len(mat[0])):
-            new[i].append(mat[i][len(mat[0])-j-1])
-    return new
-
-def transpose(mat):
-    new=[]
-    for i in range(len(mat[0])):
-        new.append([])
-        for j in range(len(mat)):
-            new[i].append(mat[j][i])
-    return new
-
-def cover_up(mat):
-    new=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]
-    done=False
-    for i in range(4):
-        count=0
-        for j in range(4):
-            if mat[i][j]!=0:
-                new[i][count]=mat[i][j]
-                if j!=count:
-                    done=True
-                count+=1
-    return (new,done)
-
-def merge(mat, chain_merge=False):
-    done=False
-    score = 0
-    if chain_merge:
-        for i in range(4):
-            for j in range(3):
-                if mat[i][j]==mat[i][j+1] and mat[i][j]!=0:
-                    mat[i][j]*=2
-                    score += mat[i][j]   
-                    mat[i][j+1]=0
-                    done=True
-    else:
-        visited = []
-        for i in range(4):
-            for j in range(3):
-                if (not(mat[i][j] in visited)) and (not(mat[i][j+1] in visited)) and mat[i][j]==mat[i][j+1] and mat[i][j]!=0:
-                    mat[i][j]*=2
-                    score += mat[i][j]   
-                    mat[i][j+1]=0
-                    visited.append(mat[i][j])
-                    visited.append(mat[i][j+1])
-                    done=True
-        for i in range(3):
-            for j in range(4):
-                if (not(mat[i][j] in visited)) and (not(mat[i+1][j] in visited)) and mat[i+1][j]==mat[i][j] and mat[i][j]!=0:
-                    mat[i][j]*=2
-                    score += mat[i][j]   
-                    mat[i+1][j]=0
-                    visited.append(mat[i][j])
-                    visited.append(mat[i+1][j])
-                    done=True
-    return (mat,done,score)
-
-
-def up(game):
-        game=transpose(game)
-        game,done=cover_up(game)
-        temp=merge(game)
-        game=temp[0]
-        done=done or temp[1]
-        game=cover_up(game)[0]
-        game=transpose(game)
-        return (game,done,temp[2])
-
-def down(game):
-        game=reverse(transpose(game))
-        game,done=cover_up(game)
-        temp=merge(game)
-        game=temp[0]
-        done=done or temp[1]
-        game=cover_up(game)[0]
-        game=transpose(reverse(game))
-        return (game,done,temp[2])
-
-def left(game):
-        game,done=cover_up(game)
-        temp=merge(game)
-        game=temp[0]
-        done=done or temp[1]
-        game=cover_up(game)[0]
-        return (game,done,temp[2])
-
-def right(game):
-        game=reverse(game)
-        game,done=cover_up(game)
-        temp=merge(game)
-        game=temp[0]
-        done=done or temp[1]
-        game=cover_up(game)[0]
-        game=reverse(game)
-        return (game,done,temp[2])
-    
-
-def findemptyCell(mat):
-    count = 0
-    for i in range(len(mat)):
-        for j in range(len(mat)):
-            if(mat[i][j]==0):
-                count+=1
-    return count
-
 def change_values(X):
     power_mat = np.zeros(shape=(1,4,4,16),dtype=np.float32)
     for i in range(4):
@@ -200,7 +50,6 @@ controls = {0:up,1:left,2:right,3:down}
 learned_graph = tf.Graph()
 
 with learned_graph.as_default():
-    
     #input data
     single_dataset = tf.placeholder(tf.float32,shape=(1,4,4,16))
     
@@ -219,24 +68,24 @@ with learned_graph.as_default():
     fc_layer1_biases = tf.constant(parameters['fc_layer1_b'],dtype=tf.float32)
     fc_layer2_weights = tf.constant(parameters['fc_layer2_w'],dtype=tf.float32)
     fc_layer2_biases = tf.constant(parameters['fc_layer2_b'],dtype=tf.float32)
-    
-    
+
+
     #model
     def model(dataset):
         #layer1
-        conv1 = tf.nn.conv2d(dataset,conv1_layer1_weights,[1,1,1,1],padding='VALID') 
-        conv2 = tf.nn.conv2d(dataset,conv2_layer1_weights,[1,1,1,1],padding='VALID') 
+        conv1 = tf.nn.conv2d(dataset,conv1_layer1_weights,[1,1,1,1],padding='VALID')
+        conv2 = tf.nn.conv2d(dataset,conv2_layer1_weights,[1,1,1,1],padding='VALID')
 
         #layer1 relu activation
         relu1 = tf.nn.relu(conv1)
         relu2 = tf.nn.relu(conv2)
 
         #layer2
-        conv11 = tf.nn.conv2d(relu1,conv1_layer2_weights,[1,1,1,1],padding='VALID') 
-        conv12 = tf.nn.conv2d(relu1,conv2_layer2_weights,[1,1,1,1],padding='VALID') 
+        conv11 = tf.nn.conv2d(relu1,conv1_layer2_weights,[1,1,1,1],padding='VALID')
+        conv12 = tf.nn.conv2d(relu1,conv2_layer2_weights,[1,1,1,1],padding='VALID')
 
-        conv21 = tf.nn.conv2d(relu2,conv1_layer2_weights,[1,1,1,1],padding='VALID') 
-        conv22 = tf.nn.conv2d(relu2,conv2_layer2_weights,[1,1,1,1],padding='VALID') 
+        conv21 = tf.nn.conv2d(relu2,conv1_layer2_weights,[1,1,1,1],padding='VALID')
+        conv22 = tf.nn.conv2d(relu2,conv2_layer2_weights,[1,1,1,1],padding='VALID')
 
         #layer2 relu activation
         relu11 = tf.nn.relu(conv11)
@@ -299,15 +148,12 @@ learned_sess = tf.Session(graph=learned_graph)
 class GameGrid(Frame):
     def __init__(self):
         Frame.__init__(self)
-
         self.grid()
         self.master.title('2048')
-
         self.grid_cells = []
         self.init_grid()
         self.init_matrix()
         self.update_grid_cells()
-        
         self.wait_visibility()
         self.after(10,self.make_move)
         
@@ -323,17 +169,12 @@ class GameGrid(Frame):
                 t = Label(master=cell, text="", bg=BACKGROUND_COLOR_CELL_EMPTY, justify=CENTER, font=FONT, width=4, height=2)
                 t.grid()
                 grid_row.append(t)
-
             self.grid_cells.append(grid_row)
-
-    def gen(self):
-        return randint(0, GRID_LEN - 1)
 
     def init_matrix(self):
         self.matrix = new_game(4)
-
-        self.matrix=add_two(self.matrix)
-        self.matrix=add_two(self.matrix)
+        self.matrix=randomfill(self.matrix)
+        self.matrix=randomfill(self.matrix)
 
     def update_grid_cells(self):
         for i in range(GRID_LEN):
@@ -348,29 +189,19 @@ class GameGrid(Frame):
     def make_move(self):
         output = learned_sess.run([single_output],feed_dict = {single_dataset:change_values(self.matrix)})
         move = np.argmax(output[0])
-        #move = randrange(4)
-        # print(move)
-        self.matrix,done,tempo = controls[move](self.matrix)
+        self.matrix,tempo = controls[move](self.matrix)
         done=True
-        
-        #if game_state(self.matrix)=='win':
-        #    self.grid_cells[1][1].configure(text="You",bg=BACKGROUND_COLOR_CELL_EMPTY)
-        #    self.grid_cells[1][2].configure(text="Win!",bg=BACKGROUND_COLOR_CELL_EMPTY)
-        #    done=False
-        # print(game_state(self.matrix))
-        if game_state(self.matrix)=='lose':
+        if isgameover(self.matrix)=='lose':
             self.grid_cells[1][1].configure(text="You",bg=BACKGROUND_COLOR_CELL_EMPTY)
             self.grid_cells[1][2].configure(text="Lose!",bg=BACKGROUND_COLOR_CELL_EMPTY)
             done=False
             
-        self.matrix = add_two(self.matrix)
+        self.matrix = randomfill(self.matrix)
         self.update_grid_cells()
-        
-        
+
         if(done==True):
-            self.after(1,self.make_move)
+            self.after(50,self.make_move)
         else:
-            # time.sleep(0)
             score = 0
             for i in self.matrix:
                 for j in i:
@@ -382,15 +213,11 @@ class GameGrid(Frame):
                 play -= 1
                 self.init_matrix()
                 self.update_grid_cells()
-                self.after(1,self.make_move)
+                self.after(100,self.make_move)
                 print(play)
-            else: 
-                savee()
-
-def savee():
-    helpers.save(path='./played/', name='final_value_trained', lis=scores, mode='.txt')
-    # helpers.save(path='./played/', name='final_value_random', lis=scores, mode='.txt')
-    exit()
+            else:
+                helpers.save(path='./played/', name='final_value_trained', lis=scores, mode='.txt')
+                exit()
 
 root = Tk()
 gamegrid = GameGrid()

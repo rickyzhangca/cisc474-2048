@@ -4,53 +4,43 @@ import math
 
 # initialize a new game
 def new_game(n):
-    matrix = np.zeros([n,n])
+    matrix = np.zeros([n,n], dtype=int)
     return matrix
 
-# add 2 or 4 in the matrix
-def add_two(mat):
-    empty_cells = []
-    for i in range(len(mat)):
-        for j in range(len(mat[0])):
-            if(mat[i][j]==0):
-                empty_cells.append((i,j))
-    if(len(empty_cells)==0):
-        return mat
-    
-    index_pair = empty_cells[random.randint(0,len(empty_cells)-1)]
-    
-    prob = random.random()
-    if(prob>=0.9):
-        mat[index_pair[0]][index_pair[1]]=4
-    else:
-        mat[index_pair[0]][index_pair[1]]=2
-    return mat
-
 # to check state of the game
-def game_state(mat):
+def isgameover(mat):
     #if 2048 in mat:
     #    return 'win'
-    
+    count = findemptyCell(mat)
+    if count!=0:
+        return mat
     for i in range(len(mat)-1): #intentionally reduced to check the row on the right and below
         for j in range(len(mat[0])-1): #more elegant to use exceptions but most likely this will be their solution
             if mat[i][j]==mat[i+1][j] or mat[i][j+1]==mat[i][j]:
                 return 'not over'
-            
-    for i in range(len(mat)): #check for any zero entries
-        for j in range(len(mat[0])):
-            if mat[i][j]==0:
-                return 'not over'
-            
-    for k in range(len(mat)-1): #to check the left/right entries on the last row
-        if mat[len(mat)-1][k]==mat[len(mat)-1][k+1]:
+        if mat[len(mat) - 1][i] == mat[len(mat) - 1][i + 1]:
             return 'not over'
-        
-    for j in range(len(mat)-1): #check up/down entries on last column
-        if mat[j][len(mat)-1]==mat[j+1][len(mat)-1]:
+        if mat[i][len(mat)-1]==mat[i+1][len(mat)-1]:
             return 'not over'
-        
     return 'lose'
 
+# add 2 or 4 in the matrix
+def randomfill(mat):
+    count = findemptyCell(mat)
+    if count==0:
+        return mat
+    empty = False
+    while not empty:
+        w = random.randint(0, 15)
+
+        if mat[w // 4][w % 4] == 0:
+            empty = True
+    prob = random.random()
+    if(prob>=0.9):
+        mat[w // 4][w % 4]=4
+    else:
+        mat[w // 4][w % 4]=2
+    return mat
 
 def reverse(mat):
     new=[]
@@ -61,29 +51,19 @@ def reverse(mat):
     return new
 
 def transpose(mat):
-    new=[]
-    for i in range(len(mat[0])):
-        new.append([])
-        for j in range(len(mat)):
-            new[i].append(mat[j][i])
-            
     return np.transpose(mat)
 
 def cover_up(mat):
-    new = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]]
-    done = False
+    new = np.zeros([4, 4], dtype=int)
     for i in range(4):
         count = 0
         for j in range(4):
             if mat[i][j]!=0:
                 new[i][count] = mat[i][j]
-                if j!=count:
-                    done=True
                 count+=1
-    return (new,done)
+    return new
 
 def merge(mat):
-    done=False
     score = 0
     visited = []
     for i in range(4):
@@ -94,7 +74,6 @@ def merge(mat):
                  mat[i][j+1]=0
                  visited.append(mat[i][j])
                  visited.append(mat[i][j+1])
-                 done=True
     for i in range(3):
          for j in range(4):
              if (not(mat[i][j] in visited)) and (not(mat[i+1][j] in visited)) and mat[i+1][j]==mat[i][j] and mat[i][j]!=0:
@@ -103,52 +82,42 @@ def merge(mat):
                  mat[i+1][j]=0
                  visited.append(mat[i][j])
                  visited.append(mat[i+1][j])
-                 done=True
-    return (mat,done,score)
+    return (mat,score)
 
 # up move
 def up(game):
         game = transpose(game)
-        game,done = cover_up(game)
-        temp = merge(game)
-        game = temp[0]
-        done = done or temp[1]
-        game = cover_up(game)[0]
+        game, temp = update(game)
         game = transpose(game)
-        return (game,done,temp[2])
+        return (game,temp)
 
 # down move
 def down(game):
         game=reverse(transpose(game))
-        game,done=cover_up(game)
-        temp=merge(game)
-        game=temp[0]
-        done=done or temp[1]
-        game=cover_up(game)[0]
+        game, temp = update(game)
         game=transpose(reverse(game))
-        return (game,done,temp[2])
+        return (game,temp)
 
 # left move
 def left(game):
-        game,done=cover_up(game)
-        temp=merge(game)
-        game=temp[0]
-        done=done or temp[1]
-        game=cover_up(game)[0]
-        return (game,done,temp[2])
+        game, temp = update(game)
+        return (game,temp)
 
 # right move
 def right(game):
         game=reverse(game)
-        game,done=cover_up(game)
-        temp=merge(game)
-        game=temp[0]
-        done=done or temp[1]
-        game=cover_up(game)[0]
+        game, temp = update(game)
         game=reverse(game)
-        return (game,done,temp[2])
+        return (game,temp)
 
 controls = {0:up,1:left,2:right,3:down}
+
+def update(game):
+    game = cover_up(game)
+    temp = merge(game)
+    game = temp[0]
+    game = cover_up(game)
+    return game, temp[1]
 
 def change_values(X):
     power_mat = np.zeros(shape=(1,4,4,16),dtype=np.float32)
