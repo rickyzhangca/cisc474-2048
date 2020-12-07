@@ -127,3 +127,37 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+tf2/bin/activate
+tf2/bin/activate.csh
+tf2/bin/activate.fish
+tf2/bin/Activate.ps1
+tf2/bin/chardetect
+tf2/bin/easy_install
+tf2/bin/easy_install-3.8
+tf2/bin/estimator_ckpt_converter
+tf2/bin/f2py
+tf2/bin/f2py3
+tf2/bin/f2py3.8
+tf2/bin/google-oauthlib-tool
+tf2/bin/markdown_py
+tf2/bin/pip
+tf2/bin/pip3
+tf2/bin/pip3.8
+tf2/bin/pyrsa-decrypt
+tf2/bin/pyrsa-encrypt
+tf2/bin/pyrsa-keygen
+tf2/bin/pyrsa-priv2pub
+tf2/bin/pyrsa-sign
+tf2/bin/pyrsa-verify
+tf2/bin/python
+tf2/bin/python3
+tf2/bin/saved_model_cli
+tf2/bin/tensorboard
+tf2/bin/tf_upgrade_v2
+tf2/bin/tflite_convert
+tf2/bin/toco
+tf2/bin/toco_from_protos
+tf2/bin/wheel
+tf2/pyvenv.cfg
+.vscode/settings.json
+.DS_Store
