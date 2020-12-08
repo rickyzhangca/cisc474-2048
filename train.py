@@ -37,19 +37,22 @@ def setup():
     # disable tf2's eager execution to use tf1 style pipeline
     tf.compat.v1.disable_eager_execution()
     # check cuda info
-    print(tf.test.is_built_with_cuda()) 
-    print(tf.config.list_physical_devices('GPU'))
+    print("CUDA: " + str(tf.test.is_built_with_cuda())) 
+    print("GPU: " + str(tf.config.list_physical_devices('GPU')))
     
 setup()
 
 ################################################################################################################
 
 class dql():
+
+    # initialize network
     def __init__(self, lr=0.0005, gamma=0.9, epsilon=0.9):
         self.lr = lr
         self.gamma = gamma
         self.epsilon = epsilon
     
+    # initialize sizes - the default is set for 2048 games
     def build_network(self, depth1=128, depth2=128, batch_size=512, input_units=16, hidden_units=256, output_units=4):
         self.depth1 = depth1
         self.depth2 = depth2
@@ -62,38 +65,38 @@ class dql():
         self.tf_batch_labels  = tf.compat.v1.placeholder(tf.float32,shape=(self.batch_size,self.output_units))
         self.single_dataset   = tf.compat.v1.placeholder(tf.float32,shape=(1,4,4,16))
 
-        # CONV LAYERS
-        # conv layer1 weights
+        # layer1 
         self.conv1_layer1_weights = tf.Variable(tf.random.truncated_normal([1,2,self.input_units,depth1],mean=0,stddev=0.01))
         self.conv2_layer1_weights = tf.Variable(tf.random.truncated_normal([2,1,self.input_units,depth1],mean=0,stddev=0.01))
 
-        # conv layer2 weights
+        # layer2 
         self.conv1_layer2_weights = tf.Variable(tf.random.truncated_normal([1,2,self.depth1,self.depth2],mean=0,stddev=0.01))
         self.conv2_layer2_weights = tf.Variable(tf.random.truncated_normal([2,1,self.depth1,self.depth2],mean=0,stddev=0.01))
 
-        # FUllY CONNECTED LAYERS
-        self.expand_size = 2*4*self.depth2*2 + 3*3*self.depth2*2 + 4*3*self.depth1*2
+        # fully connected layers
+        self.expand_size = 2 * 4 * self.depth2 * 2 + 3 * 3 * self.depth2 * 2 + 4 * 3 * self.depth1 * 2
         self.fc_layer1_weights = tf.Variable(tf.random.truncated_normal([self.expand_size,self.hidden_units],mean=0,stddev=0.01))
         self.fc_layer1_biases = tf.Variable(tf.random.truncated_normal([1,self.hidden_units],mean=0,stddev=0.01))
         self.fc_layer2_weights = tf.Variable(tf.random.truncated_normal([self.hidden_units,self.output_units],mean=0,stddev=0.01))
         self.fc_layer2_biases = tf.Variable(tf.random.truncated_normal([1,self.output_units],mean=0,stddev=0.01))
 
+    # graph the model
     def model(self, dataset):
-        # layer1
+        # layer1 size
         conv1 = tf.nn.conv2d(dataset,self.conv1_layer1_weights,[1,1,1,1],padding='VALID')
         conv2 = tf.nn.conv2d(dataset,self.conv2_layer1_weights,[1,1,1,1],padding='VALID')
 
-        # layer1 relu activation
+        # layer1 activation
         relu1 = tf.nn.relu(conv1)
         relu2 = tf.nn.relu(conv2)
 
-        # layer2
+        # layer2 size
         conv11 = tf.nn.conv2d(relu1,self.conv1_layer2_weights,[1,1,1,1],padding='VALID')
         conv12 = tf.nn.conv2d(relu1,self.conv2_layer2_weights,[1,1,1,1],padding='VALID')
         conv21 = tf.nn.conv2d(relu2,self.conv1_layer2_weights,[1,1,1,1],padding='VALID')
         conv22 = tf.nn.conv2d(relu2,self.conv2_layer2_weights,[1,1,1,1],padding='VALID')
 
-        # layer2 relu activation
+        # layer2 activation
         relu11 = tf.nn.relu(conv11)
         relu12 = tf.nn.relu(conv12)
         relu21 = tf.nn.relu(conv21)
@@ -107,7 +110,7 @@ class dql():
         shape21 = relu21.get_shape().as_list()
         shape22 = relu22.get_shape().as_list()
 
-        # expansion
+        # set hidden layer sizes
         hidden1 = tf.reshape(relu1,[shape1[0],shape1[1]*shape1[2]*shape1[3]])
         hidden2 = tf.reshape(relu2,[shape2[0],shape2[1]*shape2[2]*shape2[3]])
         hidden11 = tf.reshape(relu11,[shape11[0],shape11[1]*shape11[2]*shape11[3]])
@@ -125,9 +128,9 @@ class dql():
         # output layer
         output = tf.matmul(hidden,self.fc_layer2_weights) + self.fc_layer2_biases
 
-        # return output
         return output
 
+    # find legal moves from the board
     def find_legal_moves(self, board):
         legal_moves = list()
         for i in range(4):
@@ -139,21 +142,25 @@ class dql():
             return 'lose',legal_moves
         return 'not over',legal_moves
 
+    # perform a random move
     def make_random_move(self, next_board, legal_moves):
         move = random.sample(legal_moves,1)[0]
         next_board,score = game.controls[move](next_board)
         done = game.isgameover(next_board)
         return done, move, next_board, score
     
+    # check the # of merges
     def check_merges(self, current_board, next_board):
         return game.findemptyCell(next_board) - game.findemptyCell(current_board)
 
+    # update q value
     def update_label(self, labels, prev_max, next_max, merges, move):
-        labels[move] = (math.log(next_max,2))*0.1
+        labels[move] = next_max * 0.1
         if (next_max == prev_max): labels[move] = 0
         labels[move] += merges
         return labels
-                        
+    
+    # train the network and give the outcomes 
     def train(self, episodes=20000, max_replay=2000):
         scores = []
         losses = []
@@ -185,23 +192,20 @@ class dql():
         with tf.compat.v1.Session() as session:
 
             tf.compat.v1.global_variables_initializer().run()
-            print("Initialized")
 
-            # iterations 
             iterations = 1
 
             start_time = time.time()
             for e in range(episodes):
+                # initilize game
                 board = game.new_game(4)
                 game.randomfill(board)
                 game.randomfill(board)
                 
-                # whether episode finished or not
                 done = 'not over'
-                
-                # total_score of this episode
                 total_score = 0
                 
+                # play the game until it's over
                 while(done=='not over'):
                     current_board = deepcopy(board)
                     
@@ -215,13 +219,11 @@ class dql():
                     # find the move with max Q value
                     control_buttons = np.flip(np.argsort(control_scores),axis=1)
                     
-                    # copy the Q-values as labels
+                    # copy q values
                     labels = deepcopy(control_scores[0])
-
-                    # store prev max
                     prev_max = np.max(current_board)
 
-                    # num is less epsilon generate random move
+                    # generate random move
                     if(random.uniform(0,1) < self.epsilon):
                         # find legal moves
                         done, legal_moves = self.find_legal_moves(current_board)
@@ -242,18 +244,18 @@ class dql():
                         next_max = np.max(next_board)
                         labels = self.update_label(labels, prev_max, next_max, merges, move)
 
-                        # get the next state max Q-value
+                        # max(Q)
                         next_board = game.change_values(next_board)
                         next_board = np.array(next_board,dtype = np.float32).reshape(1,4,4,16)
                         feed_dict = {self.single_dataset:next_board}
                         temp_scores = session.run(single_output,feed_dict=feed_dict)
                             
                         max_qvalue = np.max(temp_scores)
-                        
-                        #final labels add gamma*max_qvalue
+
+                        # update q value
                         labels[move] = (labels[move] + self.gamma*max_qvalue)
                     
-                    # generate the the max predicted move
+                    # greedy move based on max(Q)
                     else:
                         for con in control_buttons[0]:
                             prev_state = deepcopy(current_board)
@@ -291,7 +293,7 @@ class dql():
                         if (np.array_equal(current_board,board)):
                             done = 'lose'
                     
-                    # decrease the epsilon value
+                    # decrease the epsilon
                     if((e > episodes // 2) or (self.epsilon > 0.1 and iterations % 2500 == 0)):
                         self.epsilon = self.epsilon / 1.005
                         
@@ -344,12 +346,15 @@ class dql():
 
                     iterations += 1
                 
-                if((e+1)%100 == 0):
+                if((e+1)%200 == 0):
                     current_time = time.time()
                     elapsed_time = current_time - start_time
                     start_time = time.time()
-                    scores.append(total_score/100)
-                    log = "Episode {}-{} finished in {} seconds. Average score: {}. Loss: {}.\n".format(e-99, e, elapsed_time, scores[-1], losses[len(losses)-1])
+                    scores.append(total_score)
+                    if len(losses) > 0:
+                        log = "Episode {}-{} finished in {} seconds. Total score: {}. Loss: {}.\n".format(e-199, e, elapsed_time, total_score, losses[-1])
+                    else:
+                        log = "Episode {}-{} finished in {} seconds. Total score: {}.\n".format(e-199, e, elapsed_time, total_score)
                     logs.append(log)
                     print(log)
 
